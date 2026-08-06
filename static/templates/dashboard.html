@@ -1,0 +1,241 @@
+{% extends 'base.html' %}
+{% block title %}User Dashboard — SMART DB{% endblock %}
+
+{% block content %}
+<!-- User Greeting Header -->
+<div class="row mb-4 align-items-center">
+    <div class="col-md-8">
+        <div class="d-flex align-items-center gap-3">
+            <span class="avatar-circle" style="width:52px; height:52px; font-size:1.4rem;" data-avatar-color="{{ current_user.avatar_color or '#2563EB' }}">
+                {{ current_user.username[0]|upper }}
+            </span>
+            <div>
+                <h1 class="fw-bold mb-0 text-dark fs-3">Welcome, {{ current_user.username }}</h1>
+                <p class="text-secondary mb-0 small"><i class="fa-solid fa-envelope me-1 text-icon-indigo"></i> {{ current_user.email }} &bull; Account Active since {{ current_user.created_at.strftime('%B %Y') }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 text-md-end mt-3 mt-md-0">
+        <a href="/create" class="btn btn-purple px-3 me-2">
+            <i class="fa-solid fa-plus me-1"></i> Create New Database
+        </a>
+        <a href="{{ url_for('auth.profile') }}" class="btn btn-outline-secondary px-3">
+            <i class="fa-solid fa-user-gear me-1 text-icon-indigo"></i> Profile Settings
+        </a>
+    </div>
+</div>
+
+<!-- Dashboard Stats Cards -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-lg-2">
+        <div class="stat-card stat-card-blue">
+            <div class="stat-icon text-icon-blue"><i class="fa-solid fa-database"></i></div>
+            <div class="stat-number" id="cnt-schemas">{{ total_schemas }}</div>
+            <div class="stat-label">Total Schemas</div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-2">
+        <div class="stat-card stat-card-green">
+            <div class="stat-icon text-icon-green"><i class="fa-solid fa-server"></i></div>
+            <div class="stat-number text-icon-green" id="cnt-deployed">{{ deployed_count }}</div>
+            <div class="stat-label">Deployed</div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-2">
+        <div class="stat-card stat-card-cyan">
+            <div class="stat-icon text-icon-cyan"><i class="fa-solid fa-eye"></i></div>
+            <div class="stat-number" id="cnt-views">{{ total_views }}</div>
+            <div class="stat-label">Total Views</div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-2">
+        <div class="stat-card stat-card-amber">
+            <div class="stat-icon text-icon-amber"><i class="fa-solid fa-download"></i></div>
+            <div class="stat-number" id="cnt-downloads">{{ total_downloads }}</div>
+            <div class="stat-label">Downloads</div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-2">
+        <div class="stat-card stat-card-rose">
+            <div class="stat-icon text-icon-red"><i class="fa-solid fa-heart"></i></div>
+            <div class="stat-number" id="cnt-likes">{{ total_likes }}</div>
+            <div class="stat-label">Likes</div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-2">
+        <div class="stat-card stat-card-purple">
+            <div class="stat-icon text-icon-purple"><i class="fa-solid fa-robot"></i></div>
+            <div class="stat-number" id="cnt-ai">{{ ai_count }}</div>
+            <div class="stat-label">AI Generated</div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Server Databases Section -->
+    <div class="col-lg-8">
+        <div class="card shadow-sm p-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="fw-bold mb-0 text-dark"><i class="fa-solid fa-hard-drive text-icon-blue me-2"></i>SQL Server Databases</h5>
+                <a href="/dashboard" class="btn btn-outline-secondary btn-sm"><i class="fa-solid fa-rotate me-1 text-icon-amber"></i> Refresh</a>
+            </div>
+            {% if server_databases %}
+            <div class="table-container">
+                <table class="table table-striped align-middle">
+                    <thead>
+                        <tr>
+                            <th>Database Name</th>
+                            <th>Status</th>
+                            <th>Created Date</th>
+                            <th>Creator</th>
+                            <th class="text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for db in server_databases %}
+                        <tr>
+                            <td>
+                                <div class="d-flex align-items-center gap-2">
+                                    <i class="fa-solid fa-database text-icon-blue fs-5"></i>
+                                    <span class="fw-bold font-monospace text-dark">{{ db.name }}</span>
+                                </div>
+                            </td>
+                            <td>
+                                {% if db.managed %}
+                                <span class="badge-green"><i class="fa-solid fa-check me-1"></i> Managed</span>
+                                {% else %}
+                                <span class="badge-gov"><i class="fa-solid fa-gear me-1"></i> System</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="text-secondary small">{{ db.create_date.strftime('%b %d, %Y') if db.create_date else 'N/A' }}</span>
+                            </td>
+                            <td>
+                                <span class="text-secondary small">{{ db.creator }}</span>
+                            </td>
+                            <td class="text-end">
+                                <div class="d-flex gap-1 justify-content-end">
+                                    <a href="/view-db/{{ db.name }}" class="btn btn-sm btn-outline-primary" title="View Schema Details">
+                                        <i class="fa-solid fa-eye me-1"></i> View
+                                    </a>
+                                    <a href="/open-db/{{ db.name }}" class="btn btn-sm btn-success" title="Open Dynamic CRUD">
+                                        <i class="fa-solid fa-table me-1"></i> Open
+                                    </a>
+                                    <a href="/export-db-sql/{{ db.name }}" class="btn btn-sm btn-outline-cyan" title="Export SQL Script">
+                                        <i class="fa-solid fa-file-arrow-down me-1"></i> Script
+                                    </a>
+                                    <form method="POST" action="/delete-db/{{ db.name }}" style="display:inline;" onsubmit="return confirm('WARNING: This will DROP database [{{ db.name }}] from SQL Server. This cannot be undone! Proceed?');">
+                                        <button type="submit" class="btn btn-sm btn-danger" title="Delete Database">
+                                            <i class="fa-solid fa-trash me-1"></i> Drop
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-5 bg-light rounded-3">
+                <i class="fa-solid fa-database text-muted fs-1 mb-2"></i>
+                <p class="text-secondary mb-2">No active databases detected on SQL Server.</p>
+                <a href="/create" class="btn btn-purple btn-sm"><i class="fa-solid fa-plus me-1"></i> Create Your First Database</a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Sidebar Tools & Account Info -->
+    <div class="col-lg-4">
+        <!-- Industry Breakdown Card -->
+        <div class="card shadow-sm mb-4 p-3">
+            <h6 class="fw-bold mb-3 text-dark"><i class="fa-solid fa-chart-pie me-2 text-icon-indigo"></i>Schemas by Industry</h6>
+            {% if industry_map %}
+            <div class="d-flex flex-column gap-2">
+                {% for ind, count in industry_map.items() %}
+                {% set pct = (count / total_schemas * 100)|int if total_schemas > 0 else 0 %}
+                <div>
+                    <div class="d-flex justify-content-between small mb-1">
+                        <span class="fw-medium text-dark">{{ ind }}</span>
+                        <span class="text-primary fw-bold">{{ count }}</span>
+                    </div>
+                    <div class="progress" style="height:6px; background-color:#E5E7EB;">
+                        <div class="progress-bar bg-primary" style="width:{{ pct }}%;"></div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-muted small text-center my-2">No industry metrics recorded.</p>
+            {% endif %}
+        </div>
+
+        <!-- Quick Actions Card -->
+        <div class="card shadow-sm mb-4 p-3">
+            <h6 class="fw-bold mb-3 text-dark"><i class="fa-solid fa-bolt me-2 text-icon-amber"></i>Quick Actions</h6>
+            <div class="d-flex flex-column gap-2">
+                <a href="/create" class="btn btn-purple text-start"><i class="fa-solid fa-wand-magic-sparkles me-2"></i> Generate New Schema</a>
+                <a href="/templates" class="btn btn-outline-purple text-start"><i class="fa-solid fa-layer-group me-2 text-icon-indigo"></i> Browse Pre-built Templates</a>
+                <a href="/store" class="btn btn-outline-success text-start"><i class="fa-solid fa-boxes-stacked me-2 text-icon-green"></i> Schema Catalog Marketplace</a>
+                <a href="/query-assistant" class="btn btn-outline-cyan text-start"><i class="fa-solid fa-comments me-2 text-icon-cyan"></i> Query AI Assistant</a>
+                <a href="/analytics" class="btn btn-outline-warning text-start"><i class="fa-solid fa-chart-line me-2 text-icon-amber"></i> System Analytics</a>
+            </div>
+        </div>
+
+        <!-- User Account Overview -->
+        <div class="card shadow-sm p-3">
+            <h6 class="fw-bold mb-3 text-dark"><i class="fa-solid fa-id-card me-2 text-icon-green"></i>Account Details</h6>
+            <div class="d-flex flex-column gap-2 small">
+                <div class="d-flex justify-content-between border-bottom pb-1">
+                    <span class="text-muted">User Role</span>
+                    <span class="badge-purple">{{ current_user.role|title }}</span>
+                </div>
+                <div class="d-flex justify-content-between border-bottom pb-1">
+                    <span class="text-muted">Last Session</span>
+                    <span class="text-dark fw-medium">{{ current_user.last_login.strftime('%b %d, %H:%M') if current_user.last_login else 'Active Now' }}</span>
+                </div>
+                <div class="d-flex justify-content-between">
+                    <span class="text-muted">Account Status</span>
+                    <span class="text-success fw-bold"><i class="fa-solid fa-circle-check me-1 text-icon-green"></i> Active</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="stats-data" class="d-none"
+     data-schemas="{{ total_schemas }}"
+     data-deployed="{{ deployed_count }}"
+     data-views="{{ total_views }}"
+     data-downloads="{{ total_downloads }}"
+     data-likes="{{ total_likes }}"
+     data-ai="{{ ai_count }}"></div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function animateCounter(id, target) {
+    const el = document.getElementById(id);
+    if (!el || target === 0) return;
+    let current = 0;
+    const step = Math.max(1, Math.ceil(target / 30));
+    const timer = setInterval(() => {
+        current = Math.min(current + step, target);
+        el.textContent = current.toLocaleString();
+        if (current >= target) clearInterval(timer);
+    }, 25);
+}
+document.addEventListener('DOMContentLoaded', () => {
+    const statsEl = document.getElementById('stats-data');
+    if (statsEl) {
+        animateCounter('cnt-schemas',   parseInt(statsEl.dataset.schemas || '0'));
+        animateCounter('cnt-deployed',  parseInt(statsEl.dataset.deployed || '0'));
+        animateCounter('cnt-views',     parseInt(statsEl.dataset.views || '0'));
+        animateCounter('cnt-downloads', parseInt(statsEl.dataset.downloads || '0'));
+        animateCounter('cnt-likes',     parseInt(statsEl.dataset.likes || '0'));
+        animateCounter('cnt-ai',        parseInt(statsEl.dataset.ai || '0'));
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,489 @@
+{% extends 'base.html' %}
+{% block title %}{{ database.project_name }} — Schema Details{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+<div class="col-xl-11">
+
+    <!-- Breadcrumb Navigation -->
+    <div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
+        <a href="/store" class="btn btn-sm btn-outline-secondary">
+            <i class="fa-solid fa-chevron-left me-1 text-icon-indigo"></i> Marketplace
+        </a>
+        <span class="text-muted">/</span>
+        <span class="fw-bold text-dark fs-6">{{ database.project_name }}</span>
+        {% if database.ai_generated %}<span class="badge-purple"><i class="fa-solid fa-robot me-1 text-icon-purple"></i> AI Generated</span>{% endif %}
+        {% if database.industry %}<span class="badge-gov"><i class="fa-solid fa-tag me-1 text-icon-cyan"></i> {{ database.industry }}</span>{% endif %}
+    </div>
+
+    <!-- Live Deployment Confirmation Alert -->
+    {% if database.is_deployed %}
+    <div class="alert alert-success shadow-sm mb-4">
+        <i class="fa-solid fa-circle-check fs-4 text-icon-green"></i>
+        <div class="flex-grow-1">
+            <h6 class="fw-bold mb-0">Database Deployed Successfully</h6>
+            <p class="mb-0 small text-secondary">Active database instance on SQL Server: <strong>{{ database.deployed_to }}</strong></p>
+        </div>
+        <a href="/crud/{{ database.id }}" class="btn btn-success btn-sm ms-auto">
+            <i class="fa-solid fa-table me-1"></i> Open Live CRUD Manager
+        </a>
+    </div>
+    {% endif %}
+
+    <!-- Schema Overview Header Card -->
+    <div class="card shadow-sm mb-4 p-4">
+        <div class="row align-items-start g-3">
+            <div class="col-md-7">
+                <h1 class="fw-bold mb-2 text-dark fs-2">{{ database.project_name }}</h1>
+                <p class="text-secondary small mb-3">{{ database.requirements[:220] }}{% if database.requirements|length > 220 %}...{% endif %}</p>
+                <div class="d-flex flex-wrap gap-2">
+                    {% for tag in database.tags_list[:6] %}
+                    <span class="badge-blue" style="font-size:0.75rem;"><i class="fa-solid fa-hashtag me-1 text-icon-blue"></i>{{ tag }}</span>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="col-md-5">
+                <div class="row g-2 text-center">
+                    <div class="col-4">
+                        <div class="p-2 bg-light border rounded">
+                            <div class="fw-bold text-icon-blue fs-5">{{ database.views_count or 0 }}</div>
+                            <div class="text-muted small">Views</div>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="p-2 bg-light border rounded">
+                            <div class="fw-bold text-icon-red fs-5">{{ database.likes_count or 0 }}</div>
+                            <div class="text-muted small">Likes</div>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="p-2 bg-light border rounded">
+                            <div class="fw-bold text-icon-green fs-5">{{ database.downloads_count or 0 }}</div>
+                            <div class="text-muted small">Downloads</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-3 text-center">
+                    <div class="text-warning fs-6">
+                        {% for i in range(5) %}{% if i < database.avg_rating|int %}★{% else %}☆{% endif %}{% endfor %}
+                    </div>
+                    <span class="text-muted small">{{ database.avg_rating }}/5 ({{ database.ratings.count() }} ratings)</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Action Buttons Row with Icons -->
+        <div class="mt-4 pt-3 border-top d-flex flex-wrap gap-2">
+            <a href="/push-to-ssms/{{ database.id }}" class="btn btn-purple">
+                <i class="fa-solid fa-paper-plane me-1"></i> Push to SQL Server
+            </a>
+            <a href="/execute/{{ database.id }}" class="btn btn-success">
+                <i class="fa-solid fa-play me-1"></i> Deploy to RDBMS
+            </a>
+            {% if database.is_deployed %}
+            <a href="/crud/{{ database.id }}" class="btn btn-outline-primary">
+                <i class="fa-solid fa-table me-1 text-icon-blue"></i> Browse Tables
+            </a>
+            {% endif %}
+            <a href="/database/{{ database.id }}/er-diagram" class="btn btn-outline-purple" target="_blank">
+                <i class="fa-solid fa-diagram-project me-1 text-icon-purple"></i> Full ER Diagram
+            </a>
+            <a href="/download-sql/{{ database.id }}" class="btn btn-outline-cyan">
+                <i class="fa-solid fa-file-arrow-down me-1 text-icon-cyan"></i> Download .SQL
+            </a>
+
+            <!-- Export Dropdown -->
+            <div class="dropdown">
+                <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                    <i class="fa-solid fa-file-export me-1 text-icon-amber"></i> Export Data
+                </button>
+                <ul class="dropdown-menu shadow-sm">
+                    <li><a class="dropdown-item" href="/export-csv/{{ database.id }}"><i class="fa-solid fa-file-csv me-2 text-primary"></i> Export CSV</a></li>
+                    <li><a class="dropdown-item" href="/export-excel/{{ database.id }}"><i class="fa-solid fa-file-excel me-2 text-success"></i> Export Excel</a></li>
+                    <li><a class="dropdown-item" href="/export-json/{{ database.id }}"><i class="fa-solid fa-file-code me-2 text-warning"></i> Export JSON</a></li>
+                </ul>
+            </div>
+
+            <!-- Like & Clone -->
+            <button class="btn btn-outline-danger" onclick="likeSchema({{ database.id }}, this)">
+                <i class="fa-solid fa-heart me-1"></i> Like
+            </button>
+            <button class="btn btn-outline-warning text-dark" data-bs-toggle="modal" data-bs-target="#cloneModal">
+                <i class="fa-solid fa-copy me-1"></i> Clone
+            </button>
+            <form method="POST" action="/delete/{{ database.id }}" class="m-0" onsubmit="return confirm('Delete this schema permanently?');">
+                <button type="submit" class="btn btn-danger">
+                    <i class="fa-solid fa-trash me-1"></i> Delete
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Clone Modal Dialog -->
+    <div class="modal fade" id="cloneModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content shadow">
+                <div class="modal-header border-bottom pb-2">
+                    <h5 class="modal-title fw-bold text-dark"><i class="fa-solid fa-copy me-2 text-primary"></i>Clone Database Schema</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form method="POST" action="/clone/{{ database.id }}">
+                    <div class="modal-body py-3">
+                        <p class="text-secondary small">Creates a duplicate copy of this schema as an independent project.</p>
+                        <label class="form-label fw-bold" for="clone_name">New Project Name</label>
+                        <input type="text" name="clone_name" id="clone_name" class="form-control"
+                               value="{{ database.project_name }} (Copy)" required maxlength="200">
+                    </div>
+                    <div class="modal-footer border-top pt-2">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-copy me-1"></i> Confirm Clone</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabbed Output Displays -->
+    <div class="card shadow-sm mb-4 p-4">
+        <ul class="nav nav-tabs mb-3" id="resultTabs">
+            <li class="nav-item">
+                <a class="nav-link active" data-bs-toggle="tab" href="#tab-sql">
+                    <i class="fa-solid fa-code me-1"></i> SQL DDL Script
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" data-bs-toggle="tab" href="#tab-er">
+                    <i class="fa-solid fa-diagram-project me-1"></i> ER Diagram
+                </a>
+            </li>
+            {% if data_dict %}
+            <li class="nav-item">
+                <a class="nav-link" data-bs-toggle="tab" href="#tab-dict">
+                    <i class="fa-solid fa-book me-1"></i> Data Dictionary
+                </a>
+            </li>
+            {% endif %}
+            {% if database.sample_data %}
+            <li class="nav-item">
+                <a class="nav-link" data-bs-toggle="tab" href="#tab-sample">
+                    <i class="fa-solid fa-table me-1"></i> Sample Data
+                </a>
+            </li>
+            {% endif %}
+            {% if api_docs %}
+            <li class="nav-item">
+                <a class="nav-link" data-bs-toggle="tab" href="#tab-api">
+                    <i class="fa-solid fa-network-wired me-1"></i> API Documentation
+                </a>
+            </li>
+            {% endif %}
+            {% if database.nosql_schema %}
+            <li class="nav-item">
+                <a class="nav-link" data-bs-toggle="tab" href="#tab-nosql">
+                    <i class="fa-solid fa-database me-1"></i> NoSQL MongoDB
+                </a>
+            </li>
+            {% endif %}
+            {% if improvements %}
+            <li class="nav-item">
+                <a class="nav-link" data-bs-toggle="tab" href="#tab-improve">
+                    <i class="fa-solid fa-lightbulb me-1"></i> Suggestions
+                </a>
+            </li>
+            {% endif %}
+        </ul>
+
+        <div class="tab-content pt-2">
+
+            <!-- SQL Tab -->
+            <div class="tab-pane fade show active" id="tab-sql">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="fw-bold text-dark mb-0"><i class="fa-solid fa-code text-primary me-1"></i>Generated SQL DDL Code</h6>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-outline-secondary btn-sm" onclick="copyText('sql-code-block', this)">
+                            <i class="fa-solid fa-copy me-1"></i> Copy SQL
+                        </button>
+                        <a href="/download-sql/{{ database.id }}" class="btn btn-primary btn-sm">
+                            <i class="fa-solid fa-download me-1"></i> Download .sql
+                        </a>
+                    </div>
+                </div>
+                <div class="code-container">
+                    <pre id="sql-code-block"><code>{{ database.sql_code }}</code></pre>
+                </div>
+            </div>
+
+            <!-- ER Diagram Tab -->
+            <div class="tab-pane fade" id="tab-er">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="fw-bold text-dark mb-0"><i class="fa-solid fa-diagram-project text-primary me-1"></i>Entity Relationship Diagram</h6>
+                    <div class="d-flex gap-2">
+                        <a href="/database/{{ database.id }}/er-diagram" class="btn btn-outline-primary btn-sm" target="_blank">
+                            <i class="fa-solid fa-up-right-and-down-left-from-center me-1"></i> Fullscreen
+                        </a>
+                        <button class="btn btn-outline-secondary btn-sm" onclick="downloadER()">
+                            <i class="fa-solid fa-image me-1"></i> Export Image
+                        </button>
+                    </div>
+                </div>
+                <div class="p-3 bg-light border rounded text-center" id="er-container" style="min-height:300px;">
+                    {% if database.er_diagram_mmd %}
+                    <div class="mermaid" id="mermaid-diagram" data-code="{{ database.er_diagram_mmd }}">{{ database.er_diagram_mmd }}</div>
+                    {% else %}
+                    <div class="py-5 text-muted">
+                        <i class="fa-solid fa-diagram-project fs-1 mb-2"></i>
+                        <p class="mb-0">Mermaid ER diagram source not generated for this schema.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Data Dictionary Tab -->
+            {% if data_dict %}
+            <div class="tab-pane fade" id="tab-dict">
+                <h6 class="fw-bold text-dark mb-3"><i class="fa-solid fa-book text-primary me-1"></i>Schema Data Dictionary</h6>
+                {% for table in data_dict.get('tables', []) %}
+                <div class="mb-4">
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        <h6 class="fw-bold mb-0 font-monospace text-primary fs-6">{{ table.name }}</h6>
+                        <span class="badge-blue">{{ table.get('estimated_rows','Rows') }}</span>
+                    </div>
+                    <p class="text-secondary small mb-2">{{ table.get('description','') }}</p>
+                    <div class="table-container">
+                        <table class="table table-striped align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Column</th>
+                                    <th>Data Type</th>
+                                    <th>Constraints</th>
+                                    <th>Description</th>
+                                    <th>Sample Value</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for col in table.get('columns', []) %}
+                                <tr>
+                                    <td class="fw-bold font-monospace text-dark">
+                                        {{ col.name }}
+                                        {% if 'PRIMARY' in col.get('constraints','') %}<span class="badge bg-primary ms-1" style="font-size:0.65rem;">PK</span>{% endif %}
+                                        {% if 'FOREIGN' in col.get('constraints','') or col.name.endswith('_id') and 'PRIMARY' not in col.get('constraints','') %}<span class="badge bg-secondary ms-1" style="font-size:0.65rem;">FK</span>{% endif %}
+                                    </td>
+                                    <td><span class="font-monospace text-primary small">{{ col.data_type }}</span></td>
+                                    <td class="small text-muted">{{ col.get('constraints','') or '—' }}</td>
+                                    <td class="small">{{ col.get('description','') }}</td>
+                                    <td class="small font-monospace text-success">{{ (col.get('example_values') or ['—'])[0] }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <!-- Sample Data Tab -->
+            {% if database.sample_data %}
+            <div class="tab-pane fade" id="tab-sample">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="fw-bold text-dark mb-0"><i class="fa-solid fa-table text-primary me-1"></i>Sample Mock INSERT Statements</h6>
+                    <button class="btn btn-outline-secondary btn-sm" onclick="copyText('sample-data-block', this)">
+                        <i class="fa-solid fa-copy me-1"></i> Copy SQL Inserts
+                    </button>
+                </div>
+                <div class="code-container">
+                    <pre id="sample-data-block"><code>{{ database.sample_data }}</code></pre>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- API Docs Tab -->
+            {% if api_docs %}
+            <div class="tab-pane fade" id="tab-api">
+                <h6 class="fw-bold text-dark mb-3"><i class="fa-solid fa-network-wired text-primary me-1"></i>Generated REST API Specification</h6>
+                <div class="p-3 bg-light border rounded mb-3 font-monospace small">
+                    <span class="text-muted">Base URL Endpoint:</span>
+                    <span class="text-primary fw-bold ms-1">{{ api_docs.get('base_url', '/api/v1') }}</span>
+                    <span class="badge-blue ms-2">v{{ api_docs.get('api_version', '1') }}</span>
+                </div>
+                {% for resource in api_docs.get('endpoints', []) %}
+                <div class="mb-4">
+                    <h6 class="fw-bold text-dark small text-uppercase mb-2"><i class="fa-solid fa-folder me-1 text-primary"></i>{{ resource.resource }}</h6>
+                    {% for ep in resource.get('endpoints', []) %}
+                    <div class="card p-3 mb-2 border">
+                        <div class="d-flex align-items-center gap-2 flex-wrap mb-1">
+                            <span class="badge {% if ep.method == 'GET' %}bg-primary{% elif ep.method == 'POST' %}bg-success{% elif ep.method == 'PUT' %}bg-warning text-dark{% else %}bg-danger{% endif %} fw-bold px-2 py-1" style="font-size:0.75rem;">{{ ep.method }}</span>
+                            <span class="font-monospace fw-bold text-dark small">{{ ep.path }}</span>
+                            <span class="text-secondary small ms-auto">{{ ep.description }}</span>
+                        </div>
+                        {% if ep.get('response_example') %}
+                        <div class="code-container mt-2 p-2" style="font-size:0.75rem;">
+                            <pre class="m-0 text-success"><code>{{ ep.response_example | tojson(indent=2) }}</code></pre>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <!-- NoSQL Tab -->
+            {% if database.nosql_schema %}
+            <div class="tab-pane fade" id="tab-nosql">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="fw-bold text-dark mb-0"><i class="fa-solid fa-database text-warning me-1"></i>MongoDB Document Collection Schema</h6>
+                    <button class="btn btn-outline-secondary btn-sm" onclick="copyText('nosql-block', this)">
+                        <i class="fa-solid fa-copy me-1"></i> Copy NoSQL
+                    </button>
+                </div>
+                <div class="code-container">
+                    <pre id="nosql-block"><code>{{ database.nosql_schema }}</code></pre>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Suggestions Tab -->
+            {% if improvements %}
+            <div class="tab-pane fade" id="tab-improve">
+                <h6 class="fw-bold text-dark mb-3"><i class="fa-solid fa-lightbulb text-warning me-1"></i>Optimization Suggestions</h6>
+                {% if improvements.get('overall_assessment') %}
+                <div class="alert alert-info mb-3">
+                    <i class="fa-solid fa-circle-info me-2"></i>{{ improvements.overall_assessment }}
+                </div>
+                {% endif %}
+                {% for s in improvements.get('suggestions', []) %}
+                <div class="card p-3 mb-2 border-start border-4 {% if s.get('priority', '')|lower == 'high' %}border-danger{% else %}border-primary{% endif %}">
+                    <div class="d-flex align-items-center gap-2 mb-1">
+                        <span class="badge-blue">{{ s.get('category', 'Database') }}</span>
+                        <span class="fw-bold small {% if s.get('priority', '')|lower == 'high' %}text-danger{% else %}text-primary{% endif %}">{{ s.get('priority', 'Normal') }} Priority</span>
+                    </div>
+                    <h6 class="fw-bold text-dark mb-1 small">{{ s.get('issue', '') }}</h6>
+                    <p class="text-secondary small mb-0">{{ s.get('suggestion', '') }}</p>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+        </div>
+    </div>
+
+    <!-- Community Comments & Ratings Row -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-7">
+            <div class="card shadow-sm p-4 h-100">
+                <h6 class="fw-bold text-dark mb-3" id="comments"><i class="fa-solid fa-comments text-primary me-2"></i>User Comments ({{ comments|length }})</h6>
+                {% if comments %}
+                    {% for c in comments %}
+                    <div class="p-3 bg-light rounded border mb-2">
+                        <div class="d-flex justify-content-between mb-1">
+                            <span class="fw-bold text-dark small"><i class="fa-solid fa-user me-1 text-secondary"></i> {{ c.author_name }}</span>
+                            <span class="text-muted small">{{ c.created_at.strftime('%b %d, %Y') }}</span>
+                        </div>
+                        <p class="text-secondary small mb-0">{{ c.content }}</p>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-muted small text-center py-3">No user comments posted yet.</p>
+                {% endif %}
+
+                <form method="POST" action="/schema/{{ database.id }}/comment" class="mt-3">
+                    <div class="row g-2">
+                        <div class="col-md-4">
+                            <input type="text" name="author_name" class="form-control" placeholder="Your name" maxlength="100">
+                        </div>
+                        <div class="col-md-8">
+                            <input type="text" name="content" class="form-control" placeholder="Type your comment..." required maxlength="500">
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-sm mt-2">
+                        <i class="fa-solid fa-paper-plane me-1"></i> Post Comment
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <div class="col-md-5">
+            <div class="card shadow-sm p-4 text-center h-100">
+                <h6 class="fw-bold text-dark mb-2"><i class="fa-solid fa-star text-warning me-1"></i>Rate This Schema</h6>
+                <div class="text-warning fs-3 mb-1">
+                    {% for i in range(5) %}{% if i < database.avg_rating|int %}★{% else %}☆{% endif %}{% endfor %}
+                </div>
+                <p class="text-muted small mb-3">{{ database.avg_rating }}/5 from {{ database.ratings.count() }} ratings</p>
+
+                <form method="POST" action="/schema/{{ database.id }}/rate" class="mb-3">
+                    <div class="d-flex justify-content-center gap-2">
+                        {% for star in [1,2,3,4,5] %}
+                        <button type="submit" name="score" value="{{ star }}" class="btn btn-outline-warning btn-sm fw-bold px-3">
+                            {{ star }}★
+                        </button>
+                        {% endfor %}
+                    </div>
+                </form>
+
+                <hr class="my-3">
+                <div class="text-start text-secondary small">
+                    <p class="mb-1"><strong>Created:</strong> {{ database.created_at.strftime('%B %d, %Y at %H:%M') }}</p>
+                    <p class="mb-0"><strong>Status:</strong> Active &amp; Validated</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function likeSchema(id, btn) {
+    fetch(`/schema/${id}/like`, {method:'POST'})
+        .then(r => r.json())
+        .then(data => {
+            btn.innerHTML = `<i class="fa-solid fa-heart me-1 text-danger"></i> ${data.likes} Likes`;
+            btn.disabled = true;
+        });
+}
+
+function downloadER() {
+    const svg = document.querySelector('#er-container svg');
+    if (!svg) { alert('No ER diagram available to export.'); return; }
+    const svgData = new XMLSerializer().serializeToString(svg);
+    const canvas  = document.createElement('canvas');
+    const img     = new Image();
+    const blob    = new Blob([svgData], {type:'image/svg+xml'});
+    const url     = URL.createObjectURL(blob);
+    img.onload = () => {
+        canvas.width  = img.width  || 1200;
+        canvas.height = img.height || 800;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0);
+        const link    = document.createElement('a');
+        link.download = '{{ database.project_name | replace(" ","_") }}_ER.png';
+        link.href     = canvas.toDataURL('image/png');
+        link.click();
+        URL.revokeObjectURL(url);
+    };
+    img.src = url;
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const erTabTrigger = document.querySelector('a[href="#tab-er"]');
+    if (erTabTrigger) {
+        erTabTrigger.addEventListener('shown.bs.tab', () => {
+            const mermaidElem = document.getElementById('mermaid-diagram');
+            if (mermaidElem) {
+                const rawCode = mermaidElem.getAttribute('data-code');
+                if (rawCode) {
+                    mermaidElem.textContent = rawCode;
+                    mermaidElem.removeAttribute('data-processed');
+                    mermaid.run({ nodes: [mermaidElem] });
+                }
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

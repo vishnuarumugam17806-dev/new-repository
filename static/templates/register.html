@@ -1,0 +1,123 @@
+{% extends 'base.html' %}
+{% block title %}Create Account — SMART DB{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center py-4">
+    <div class="col-md-6 col-lg-5">
+        <div class="text-center mb-4">
+            <div class="d-inline-flex align-items-center justify-content-center p-3 bg-primary text-white rounded-circle shadow-sm mb-2" style="width:64px; height:64px;">
+                <i class="fa-solid fa-user-plus fs-3"></i>
+            </div>
+            <h2 class="fw-bold text-dark mb-1 fs-3">Create New Account</h2>
+            <p class="text-secondary small">Register to start designing and deploying database schemas</p>
+        </div>
+
+        <div class="card shadow-sm p-4">
+            <form method="POST" action="{{ url_for('auth.register') }}" id="registerForm">
+
+                <div class="mb-3">
+                    <label for="reg_username" class="form-label">Username <span class="text-danger">*</span></label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light text-muted"><i class="fa-solid fa-user"></i></span>
+                        <input type="text" class="form-control" id="reg_username" name="username"
+                               placeholder="Choose a username" required minlength="3" maxlength="80"
+                               autocomplete="username" pattern="[A-Za-z0-9_]+" title="Letters, numbers, underscores only">
+                    </div>
+                    <div class="form-text small text-muted">Letters, numbers, underscores only (min 3 characters).</div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="reg_email" class="form-label">Email Address <span class="text-danger">*</span></label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light text-muted"><i class="fa-solid fa-envelope"></i></span>
+                        <input type="email" class="form-control" id="reg_email" name="email"
+                               placeholder="user@domain.com" required autocomplete="email">
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="reg_password" class="form-label">Password <span class="text-danger">*</span></label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light text-muted"><i class="fa-solid fa-key"></i></span>
+                        <input type="password" class="form-control" id="reg_password" name="password"
+                               placeholder="Minimum 6 characters" required minlength="6" autocomplete="new-password"
+                               oninput="checkStrength(this.value)">
+                        <button type="button" class="btn btn-outline-secondary" onclick="togglePass('reg_password', this)" title="Toggle password visibility">
+                            <i class="fa-solid fa-eye"></i>
+                        </button>
+                    </div>
+                    <div class="progress mt-2" style="height:5px;">
+                        <div id="strengthBar" class="progress-bar bg-danger" style="width:0%;"></div>
+                    </div>
+                    <div id="strengthText" class="form-text small"></div>
+                </div>
+
+                <div class="mb-3">
+                    <div class="form-check">
+                        <input type="checkbox" class="form-check-input" id="terms" required>
+                        <label for="terms" class="form-check-label small text-secondary">
+                            I agree to use this service in compliance with educational and security guidelines.
+                        </label>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary w-100 py-2 mt-2" id="registerBtn">
+                    <i class="fa-solid fa-user-plus me-1"></i> Register Account
+                </button>
+            </form>
+
+            <hr class="my-4">
+
+            <p class="text-center text-secondary small mb-0">
+                Already registered?
+                <a href="{{ url_for('auth.login') }}" class="fw-bold text-primary">Sign In</a>
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function togglePass(id, btn) {
+    const input = document.getElementById(id);
+    const icon  = btn.querySelector('i');
+    if (input.type === 'password') {
+        input.type = 'text';
+        icon.className = 'fa-solid fa-eye-slash';
+    } else {
+        input.type = 'password';
+        icon.className = 'fa-solid fa-eye';
+    }
+}
+
+function checkStrength(pw) {
+    const bar  = document.getElementById('strengthBar');
+    const text = document.getElementById('strengthText');
+    let score  = 0;
+    if (pw.length >= 6)  score++;
+    if (pw.length >= 10) score++;
+    if (/[A-Z]/.test(pw)) score++;
+    if (/[0-9]/.test(pw)) score++;
+    if (/[^A-Za-z0-9]/.test(pw)) score++;
+
+    const levels = [
+        { w: '20%',  cls: 'bg-danger', label: 'Weak' },
+        { w: '40%',  cls: 'bg-warning', label: 'Fair' },
+        { w: '60%',  cls: 'bg-info', label: 'Good' },
+        { w: '80%',  cls: 'bg-primary', label: 'Strong' },
+        { w: '100%', cls: 'bg-success', label: 'Very Strong' },
+    ];
+    const lvl  = levels[Math.min(score - 1, 4)] || { w: '0%', cls: 'bg-danger', label: '' };
+    bar.style.width = lvl.w;
+    bar.className = 'progress-bar ' + lvl.cls;
+    text.textContent = lvl.label;
+}
+
+document.getElementById('registerForm').addEventListener('submit', function() {
+    const btn = document.getElementById('registerBtn');
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Creating account...';
+    btn.disabled = true;
+});
+</script>
+{% endblock %}

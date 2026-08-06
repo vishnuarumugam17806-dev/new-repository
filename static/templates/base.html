@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}SMART DB — Official Database Engineering Platform{% endblock %}</title>
+    <meta name="description" content="{% block meta_desc %}Professional, Enterprise-Ready Automatic Database Designer & Schema Generation Platform.{% endblock %}">
+
+    <!-- Favicon & Touch Icons -->
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/smart_db_logo.png') }}">
+
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- Google Fonts (Inter & JetBrains Mono) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <!-- Mermaid JS -->
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+    <!-- Custom CSS (Gov / Amazon Style) -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+    <!-- ── Enterprise Top Utility Bar ────────────────────────────────────────── -->
+    <div class="gov-top-bar">
+        <div class="container d-flex justify-content-between align-items-center">
+            <div class="d-flex align-items-center gap-3">
+                <span><i class="fa-solid fa-building-columns me-1 text-icon-amber"></i> Official System Portal</span>
+                <span class="d-none d-md-inline">|</span>
+                <span class="d-none d-md-inline"><i class="fa-solid fa-shield-halved me-1 text-icon-green"></i> Enterprise Grade Security &amp; Accessibility Standard</span>
+            </div>
+            <div class="d-flex align-items-center gap-3">
+                <a href="/store"><i class="fa-solid fa-boxes-stacked me-1 text-icon-cyan"></i> Catalog</a>
+                <a href="/templates"><i class="fa-solid fa-layer-group me-1 text-icon-purple"></i> Templates</a>
+                <a href="#footer-help"><i class="fa-solid fa-headset me-1 text-icon-pink"></i> Support</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Main Site Header with Official Logo ────────────────────────────────── -->
+    <header class="site-header navbar navbar-expand-lg">
+        <div class="container">
+            <!-- Project Brand Logo -->
+            <a class="navbar-brand py-1" href="/" title="SMART DB Platform">
+                <img src="{{ url_for('static', filename='images/smart_db_logo.png') }}?v=2" alt="SMART DB Logo" style="height: 38px; max-height: 38px; width: auto; object-fit: contain;">
+            </a>
+
+            <!-- Mobile Toggle -->
+            <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navMenu" aria-controls="navMenu" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+
+            <!-- Navigation Items & Header Search -->
+            <div class="collapse navbar-collapse" id="navMenu">
+                <!-- Search bar (Amazon Style) -->
+                <form class="header-search-form ms-lg-3 my-2 my-lg-0" action="/store" method="GET" role="search">
+                    <i class="fa-solid fa-magnifying-glass header-search-icon"></i>
+                    <input class="form-control header-search-input" type="search" name="q" placeholder="Search databases, tables, schemas..." aria-label="Search">
+                </form>
+
+                <ul class="navbar-nav ms-auto align-items-lg-center gap-1">
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.path == '/' %}active{% endif %}" href="/">
+                            <i class="fa-solid fa-house me-1 text-icon-blue"></i> <span>Home</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.path == '/create' %}active{% endif %}" href="/create">
+                            <i class="fa-solid fa-wand-magic-sparkles me-1 text-icon-purple"></i> <span>AI Generator</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.path == '/store' %}active{% endif %}" href="/store">
+                            <i class="fa-solid fa-boxes-stacked me-1 text-icon-green"></i> <span>Marketplace</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.path == '/templates' %}active{% endif %}" href="/templates">
+                            <i class="fa-solid fa-layer-group me-1 text-icon-indigo"></i> <span>Templates</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.path == '/query-assistant' %}active{% endif %}" href="/query-assistant">
+                            <i class="fa-solid fa-comments me-1 text-icon-cyan"></i> <span>Query AI</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.path == '/analytics' %}active{% endif %}" href="/analytics">
+                            <i class="fa-solid fa-chart-line me-1 text-icon-pink"></i> <span>Analytics</span>
+                        </a>
+                    </li>
+
+                    <li class="nav-item ms-lg-2">
+                        <a class="btn btn-purple btn-sm px-3" href="/create">
+                            <i class="fa-solid fa-plus me-1"></i> Create New
+                        </a>
+                    </li>
+
+                    {% if current_user.is_authenticated %}
+                    <li class="nav-item ms-lg-2">
+                        <a class="nav-link {% if request.path == '/dashboard' %}active{% endif %}" href="{{ url_for('auth.dashboard') }}">
+                            <i class="fa-solid fa-gauge-high me-1 text-icon-amber"></i> <span>Dashboard</span>
+                        </a>
+                    </li>
+                    <li class="nav-item dropdown ms-lg-1">
+                        <a class="nav-link dropdown-toggle d-flex align-items-center gap-2" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <span class="avatar-circle" data-avatar-color="{{ current_user.avatar_color or '#2563EB' }}">
+                                {{ current_user.username[0] | upper }}
+                            </span>
+                            <span>{{ current_user.username }}</span>
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0" aria-labelledby="userDropdown">
+                            <li><a class="dropdown-item py-2" href="{{ url_for('auth.dashboard') }}"><i class="fa-solid fa-gauge-high me-2 text-icon-amber"></i> Dashboard</a></li>
+                            <li><a class="dropdown-item py-2" href="{{ url_for('auth.profile') }}"><i class="fa-solid fa-user me-2 text-icon-indigo"></i> Profile</a></li>
+                            <li><hr class="dropdown-divider my-1"></li>
+                            <li><a class="dropdown-item py-2 text-danger" href="{{ url_for('auth.logout') }}"><i class="fa-solid fa-right-from-bracket me-2 text-icon-red"></i> Logout</a></li>
+                        </ul>
+                    </li>
+                    {% else %}
+                    <li class="nav-item ms-lg-2">
+                        <a class="btn btn-outline-secondary btn-sm px-3" href="{{ url_for('auth.login') }}">
+                            <i class="fa-solid fa-lock me-1 text-icon-indigo"></i> Login
+                        </a>
+                    </li>
+                    <li class="nav-item ms-lg-1">
+                        <a class="btn btn-primary btn-sm px-3" href="{{ url_for('auth.register') }}">
+                            <i class="fa-solid fa-user-plus me-1"></i> Register
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </header>
+
+    <!-- ── Flash Messages ─────────────────────────────────────────────────── -->
+    <div class="container mt-3">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+            <div class="alert alert-{{ 'danger' if category == 'danger' else ('success' if category == 'success' else 'info') }} alert-dismissible fade show shadow-sm" role="alert">
+                <i class="fa-solid fa-{% if category == 'danger' %}triangle-exclamation{% elif category == 'success' %}circle-check{% else %}circle-info{% endif %} fs-5"></i>
+                <div>{{ message }}</div>
+                <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+            {% endfor %}
+        {% endif %}
+        {% endwith %}
+    </div>
+
+    <!-- ── Main Content Container ─────────────────────────────────────────── -->
+    <main class="container py-4">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- ── Footer with Brand Logo ─────────────────────────────────────────── -->
+    <footer class="site-footer" id="footer-help">
+        <div class="container">
+            <div class="row g-4 mb-4">
+                <div class="col-lg-4 col-md-6">
+                    <div class="d-flex align-items-center gap-2 mb-3">
+                        <img src="{{ url_for('static', filename='images/smart_db_logo.png') }}?v=2" alt="SMART DB Logo" style="height: 42px; max-height: 42px; width: auto; object-fit: contain;">
+                        <span class="fw-extrabold fs-4 text-dark" style="font-weight: 800; letter-spacing: -0.5px;">SMART <span class="text-primary">DB</span></span>
+                    </div>
+                    <p class="text-secondary small mb-3">
+                        Official AI-powered Database Design &amp; Schema Engineering Service. Clean, simple, accessible, and production-ready database automation for students, developers, and enterprise teams.
+                    </p>
+                    <div class="d-flex gap-2">
+                        <span class="badge-gov"><i class="fa-solid fa-shield-check me-1 text-success"></i> WCAG Accessible</span>
+                        <span class="badge-gov"><i class="fa-solid fa-server me-1 text-primary"></i> SQL Server 2022</span>
+                    </div>
+                </div>
+
+                <div class="col-lg-2 col-md-6">
+                    <h6>Quick Links</h6>
+                    <ul>
+                        <li><a href="/"><i class="fa-solid fa-house me-1 text-muted"></i> Home</a></li>
+                        <li><a href="/create"><i class="fa-solid fa-wand-magic-sparkles me-1 text-muted"></i> AI Generator</a></li>
+                        <li><a href="/store"><i class="fa-solid fa-boxes-stacked me-1 text-muted"></i> Marketplace</a></li>
+                        <li><a href="/templates"><i class="fa-solid fa-layer-group me-1 text-muted"></i> Templates</a></li>
+                    </ul>
+                </div>
+
+                <div class="col-lg-3 col-md-6">
+                    <h6>Services &amp; Tools</h6>
+                    <ul>
+                        <li><a href="/query-assistant"><i class="fa-solid fa-comments me-1 text-muted"></i> Query AI Assistant</a></li>
+                        <li><a href="/analytics"><i class="fa-solid fa-chart-line me-1 text-muted"></i> Analytics &amp; Reports</a></li>
+                        <li><a href="/dashboard"><i class="fa-solid fa-gauge-high me-1 text-muted"></i> User Dashboard</a></li>
+                        <li><a href="/store"><i class="fa-solid fa-download me-1 text-muted"></i> Export Schemas</a></li>
+                    </ul>
+                </div>
+
+                <div class="col-lg-3 col-md-6">
+                    <h6>Help &amp; Support</h6>
+                    <ul>
+                        <li><a href="/templates"><i class="fa-solid fa-book-open me-1 text-muted"></i> Template Documentation</a></li>
+                        <li><a href="/query-assistant"><i class="fa-solid fa-headset me-1 text-muted"></i> Technical Support</a></li>
+                        <li><a href="/analytics"><i class="fa-solid fa-shield me-1 text-muted"></i> System Health</a></li>
+                        <li><a href="/store"><i class="fa-solid fa-file-contract me-1 text-muted"></i> Usage Terms</a></li>
+                    </ul>
+                </div>
+            </div>
+
+            <hr class="my-4 border-light">
+
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-center small text-secondary">
+                <p class="mb-2 mb-md-0">&copy; 2026 SMART DB Platform. Designed for maximum usability, clarity, and performance.</p>
+                <div class="d-flex gap-3">
+                    <span class="text-secondary"><i class="fa-solid fa-globe me-1"></i> English</span>
+                    <span class="text-secondary"><i class="fa-solid fa-universal-access me-1"></i> Accessible UI</span>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Mermaid Init (Light Theme) -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            mermaid.initialize({
+                startOnLoad: true,
+                theme: 'default',
+                securityLevel: 'loose',
+                themeVariables: {
+                    fontFamily: 'Inter, sans-serif',
+                    primaryColor: '#EFF6FF',
+                    primaryTextColor: '#1F2937',
+                    primaryBorderColor: '#2563EB',
+                    lineColor: '#475569',
+                    secondaryColor: '#F8FAFC',
+                    tertiaryColor: '#FFFFFF'
+                }
+            });
+        });
+    </script>
+
+    <!-- General Copy Helper -->
+    <script>
+    function copyText(elementId, btn) {
+        const el = document.getElementById(elementId);
+        if (!el) return;
+        const text = el.innerText || el.textContent;
+        navigator.clipboard.writeText(text).then(() => {
+            const orig = btn.innerHTML;
+            btn.innerHTML = '<i class="fa-solid fa-check me-1"></i> Copied!';
+            btn.classList.remove('btn-outline-secondary', 'btn-secondary');
+            btn.classList.add('btn-success');
+            setTimeout(() => {
+                btn.innerHTML = orig;
+                btn.classList.remove('btn-success');
+                btn.classList.add('btn-outline-secondary');
+            }, 2000);
+        }).catch(() => alert('Copying failed. Please copy text manually.'));
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        document.querySelectorAll('[data-avatar-color]').forEach(el => {
+            const color = el.getAttribute('data-avatar-color');
+            if (color) {
+                el.style.backgroundColor = color;
+            }
+        });
+    });
+    </script>
+
+    {% block extra_scripts %}{% endblock %}
+</body>
+</html>

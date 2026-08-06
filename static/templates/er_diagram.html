@@ -1,0 +1,203 @@
+{% extends 'base.html' %}
+{% block title %}ER Diagram — {{ database.project_name }} — SMART DB{% endblock %}
+
+{% block extra_head %}
+<style>
+.er-fullscreen {
+    background: #FFFFFF;
+    border-radius: 10px;
+    border: 1px solid var(--border-light);
+    padding: 1.5rem;
+    min-height: 550px;
+    position: relative;
+    overflow: auto;
+    box-shadow: var(--shadow-sm);
+}
+.er-fullscreen .mermaid {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    min-height: 480px;
+}
+.er-toolbar {
+    background: #F8FAFC;
+    border: 1px solid var(--border-light);
+    border-radius: 10px;
+    padding: 0.75rem 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.25rem;
+}
+.zoom-info {
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    min-width: 60px;
+    text-align: center;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+<div class="col-xl-11">
+
+    <!-- Breadcrumb -->
+    <div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
+        <a href="/database/{{ database.id }}" class="btn btn-sm btn-outline-secondary">
+            <i class="fa-solid fa-chevron-left me-1 text-icon-indigo"></i> Back to Schema
+        </a>
+        <span class="text-muted">/</span>
+        <span class="fw-bold text-dark fs-6"><i class="fa-solid fa-diagram-project me-1 text-icon-purple"></i> ER Diagram Visualizer</span>
+        <span class="badge-purple">{{ database.project_name }}</span>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="er-toolbar">
+        <span class="fw-bold text-dark fs-6">
+            <i class="fa-solid fa-database text-icon-blue me-1"></i> {{ database.project_name }}
+        </span>
+        <div class="d-flex align-items-center gap-2 ms-auto">
+            <button class="btn btn-sm btn-outline-secondary" onclick="zoomOut()" title="Zoom Out">
+                <i class="fa-solid fa-magnifying-glass-minus text-icon-amber"></i>
+            </button>
+            <span class="zoom-info" id="zoomLabel">100%</span>
+            <button class="btn btn-sm btn-outline-secondary" onclick="zoomIn()" title="Zoom In">
+                <i class="fa-solid fa-magnifying-glass-plus text-icon-amber"></i>
+            </button>
+            <button class="btn btn-sm btn-outline-secondary" onclick="resetZoom()" title="Reset Zoom">
+                <i class="fa-solid fa-expand text-icon-cyan"></i>
+            </button>
+            <button class="btn btn-sm btn-purple" onclick="exportPNG()">
+                <i class="fa-solid fa-image me-1"></i> Export PNG
+            </button>
+            <button class="btn btn-sm btn-outline-purple" onclick="exportSVG()">
+                <i class="fa-solid fa-file-code me-1 text-icon-purple"></i> Export SVG
+            </button>
+        </div>
+    </div>
+
+    <!-- ER Diagram Display -->
+    <div class="er-fullscreen" id="er-wrapper">
+        <div id="er-scale-wrapper" style="transform-origin: top center; transition: transform 0.2s;">
+            {% if database.er_diagram_mmd %}
+            <div class="mermaid" id="er-diagram">{{ database.er_diagram_mmd }}</div>
+            {% else %}
+            <div class="text-center py-5 text-muted">
+                <i class="fa-solid fa-diagram-project fs-1 mb-2 text-icon-purple"></i>
+                <h5 class="fw-bold text-dark">No ER diagram available</h5>
+                <p class="small">Re-generate this schema with AI to construct the Mermaid diagram.</p>
+                <a href="/create" class="btn btn-purple px-4 mt-2"><i class="fa-solid fa-wand-magic-sparkles me-1"></i> Generate New Schema</a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Mermaid Source Code -->
+    {% if database.er_diagram_mmd %}
+    <div class="card shadow-sm mt-4 p-4">
+        <div class="d-flex align-items-center justify-content-between mb-2">
+            <h6 class="fw-bold text-dark mb-0"><i class="fa-solid fa-code text-primary me-2"></i>Mermaid Source Code</h6>
+            <button class="btn btn-outline-secondary btn-sm" onclick="copyMMD()">
+                <i class="fa-solid fa-copy me-1"></i> Copy Mermaid
+            </button>
+        </div>
+        <div class="code-container p-3" style="max-height:250px;">
+            <pre id="mmd-source"><code>{{ database.er_diagram_mmd }}</code></pre>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- ER Legend Card -->
+    <div class="card shadow-sm mt-4 p-4">
+        <h6 class="fw-bold text-dark mb-3"><i class="fa-solid fa-circle-info text-primary me-2"></i>ER Diagram Cardinality Legend</h6>
+        <div class="row g-3">
+            {% set legend = [
+                ('||--||','One to One','Exactly one instance on both ends'),
+                ('||--o{','One to Many','One instance relates to zero or more'),
+                ('}o--o{','Many to Many','Multiple instances on both ends'),
+                ('PK','Primary Key','Unique row identifier'),
+                ('FK','Foreign Key','References related table primary key'),
+            ] %}
+            {% for symbol, name, desc in legend %}
+            <div class="col-md-4 col-6">
+                <div class="d-flex align-items-center gap-2">
+                    <span class="badge-blue font-monospace">{{ symbol }}</span>
+                    <div>
+                        <div class="fw-bold text-dark small">{{ name }}</div>
+                        <div class="text-muted small" style="font-size:0.75rem;">{{ desc }}</div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+</div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+let scale = 1;
+const wrapper = document.getElementById('er-scale-wrapper');
+
+function zoomIn()  { scale = Math.min(scale + 0.15, 3);    applyZoom(); }
+function zoomOut() { scale = Math.max(scale - 0.15, 0.3);  applyZoom(); }
+function resetZoom() { scale = 1; applyZoom(); }
+function applyZoom() {
+    wrapper.style.transform = `scale(${scale})`;
+    document.getElementById('zoomLabel').textContent = Math.round(scale * 100) + '%';
+}
+
+function copyMMD() {
+    const src = document.getElementById('mmd-source');
+    if (src) navigator.clipboard.writeText(src.innerText);
+}
+
+function exportSVG() {
+    const svg = document.querySelector('#er-diagram svg');
+    if (!svg) { alert('No diagram to export.'); return; }
+    const data = new XMLSerializer().serializeToString(svg);
+    const blob = new Blob([data], {type: 'image/svg+xml'});
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.download = '{{ database.project_name | replace(" ","_") }}_ER.svg';
+    a.href = url; a.click();
+    URL.revokeObjectURL(url);
+}
+
+function exportPNG() {
+    const svg = document.querySelector('#er-diagram svg');
+    if (!svg) { alert('No diagram to export.'); return; }
+    const svgData = new XMLSerializer().serializeToString(svg);
+    const canvas  = document.createElement('canvas');
+    const img     = new Image();
+    const blob    = new Blob([svgData], {type:'image/svg+xml'});
+    const url     = URL.createObjectURL(blob);
+    img.onload = () => {
+        canvas.width  = Math.max(img.width, 1200);
+        canvas.height = Math.max(img.height, 800);
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0);
+        const a = document.createElement('a');
+        a.download = '{{ database.project_name | replace(" ","_") }}_ER.png';
+        a.href = canvas.toDataURL('image/png');
+        a.click();
+        URL.revokeObjectURL(url);
+    };
+    img.src = url;
+}
+
+document.getElementById('er-wrapper').addEventListener('wheel', function(e) {
+    if (e.ctrlKey) {
+        e.preventDefault();
+        if (e.deltaY < 0) zoomIn(); else zoomOut();
+    }
+}, { passive: false });
+</script>
+{% endblock %}

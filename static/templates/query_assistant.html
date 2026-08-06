@@ -1,0 +1,211 @@
+{% extends "base.html" %}
+
+{% block title %}Query Assistant — SMART DB{% endblock %}
+{% block meta_desc %}Convert natural language questions to SQL queries instantly.{% endblock %}
+
+{% block content %}
+<div class="row mb-4 align-items-center">
+    <div class="col-md-8">
+        <h1 class="fw-bold text-dark mb-1 fs-3">
+            <i class="fa-solid fa-comments text-icon-cyan me-2"></i>Natural Language Query AI
+        </h1>
+        <p class="text-secondary small">Type a business question in plain English to automatically construct the corresponding SQL query.</p>
+    </div>
+    <div class="col-md-4 text-md-end">
+        <span class="badge-purple">
+            <i class="fa-solid fa-wand-magic-sparkles me-1 text-icon-purple"></i> AI Engine Active
+        </span>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Question Form -->
+    <div class="col-lg-5">
+        <div class="card shadow-sm p-4">
+            <h5 class="fw-bold text-dark mb-3"><i class="fa-solid fa-pen-to-square text-icon-purple me-2"></i>Ask a Question</h5>
+
+            <div class="mb-3">
+                <label class="form-label" for="schemaSelect">Select Schema Context (Optional)</label>
+                <select id="schemaSelect" class="form-select">
+                    <option value="">— General SQL (No specific schema) —</option>
+                    {% for schema in schemas %}
+                    <option value="{{ schema.id }}">{{ schema.project_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Target RDBMS Engine</label>
+                <div class="d-flex gap-2 flex-wrap">
+                    {% for db_opt, db_label in [('sqlite','SQLite'), ('mysql','MySQL'), ('postgresql','PostgreSQL'), ('mssql','SQL Server')] %}
+                    <label class="btn btn-outline-cyan btn-sm py-1 px-3" style="cursor:pointer;">
+                        <input type="radio" name="dbType" value="{{ db_opt }}" {% if db_opt == 'mssql' %}checked{% endif %} class="me-1">
+                        {{ db_label }}
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label" for="queryInput">Your Question in Plain English</label>
+                <textarea id="queryInput" class="form-control" rows="4"
+                    placeholder="e.g. Find all patients who booked appointments this month along with doctor details..."></textarea>
+            </div>
+
+            <button id="runQueryBtn" onclick="runQuery()" class="btn btn-purple w-100 py-2">
+                <i class="fa-solid fa-wand-magic-sparkles me-1"></i> Convert to SQL Query
+            </button>
+
+            <!-- Sample Prompts -->
+            <div class="mt-4 pt-3 border-top">
+                <p class="text-secondary small fw-bold mb-2">Try these sample questions:</p>
+                <div class="d-flex flex-column gap-2">
+                    {% for ex in [
+                        'Show all active users registered this month',
+                        'Find top 5 products by total sales revenue',
+                        'List employees with salary above department average',
+                        'Get all pending orders with customer details',
+                        'Count total students enrolled per course'
+                    ] %}
+                    <button class="btn btn-outline-secondary btn-sm text-start text-dark py-2 px-3" onclick="setExample(this.innerText)">
+                        <i class="fa-solid fa-lightbulb text-icon-amber me-2"></i> {{ ex }}
+                    </button>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SQL Output Area -->
+    <div class="col-lg-7">
+        <div id="resultPlaceholder" class="card shadow-sm p-5 text-center h-100 d-flex flex-column align-items-center justify-content-center bg-light" style="min-height:380px;">
+            <i class="fa-solid fa-code text-muted fs-1 mb-2"></i>
+            <h5 class="fw-bold text-dark">SQL Output Console</h5>
+            <p class="text-secondary small mb-0">Type a question on the left and click "Convert to SQL Query".</p>
+        </div>
+
+        <div id="resultLoading" class="card shadow-sm p-5 text-center d-none bg-light" style="min-height:380px;">
+            <div class="spinner-border text-primary mx-auto mb-3" role="status"></div>
+            <p class="text-primary fw-bold mb-0">Translating English prompt to SQL query...</p>
+        </div>
+
+        <div id="resultOutput" class="d-none">
+            <div class="card shadow-sm p-4 mb-3">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <h6 class="fw-bold text-dark mb-0"><i class="fa-solid fa-code text-primary me-2"></i>Generated SQL Query</h6>
+                    <button class="btn btn-outline-secondary btn-sm" onclick="copyText('sqlResult', this)">
+                        <i class="fa-solid fa-copy me-1"></i> Copy SQL
+                    </button>
+                </div>
+                <div class="code-container">
+                    <pre><code id="sqlResult" class="text-info"></code></pre>
+                </div>
+            </div>
+
+            <div class="card shadow-sm p-4 mb-3" id="explanationCard">
+                <h6 class="fw-bold text-dark mb-2"><i class="fa-solid fa-circle-info text-info me-2"></i>Query Explanation</h6>
+                <p id="sqlExplanation" class="text-secondary small mb-0" style="line-height:1.6;"></p>
+            </div>
+
+            <div class="row g-3">
+                <div class="col-md-6" id="tablesUsedCard">
+                    <div class="card shadow-sm p-3">
+                        <h6 class="fw-bold text-dark small mb-2"><i class="fa-solid fa-table text-primary me-2"></i>Tables Referenced</h6>
+                        <div id="tablesUsed" class="d-flex flex-wrap gap-1"></div>
+                    </div>
+                </div>
+                <div class="col-md-6" id="tipsCard">
+                    <div class="card shadow-sm p-3">
+                        <h6 class="fw-bold text-dark small mb-2"><i class="fa-solid fa-lightbulb text-warning me-2"></i>Performance Tip</h6>
+                        <div id="optimizationTips" class="d-flex flex-column gap-1 small text-secondary"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="resultError" class="d-none">
+            <div class="alert alert-danger shadow-sm p-4">
+                <i class="fa-solid fa-triangle-exclamation fs-3 me-2"></i>
+                <span id="errorMessage"></span>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function setExample(text) {
+    document.getElementById('queryInput').value = text.trim();
+    document.getElementById('queryInput').focus();
+}
+
+async function runQuery() {
+    const query     = document.getElementById('queryInput').value.trim();
+    const schemaId  = document.getElementById('schemaSelect').value;
+    const dbType    = document.querySelector('input[name="dbType"]:checked')?.value || 'sqlite';
+
+    if (!query) {
+        alert('Please enter a question prompt.');
+        return;
+    }
+
+    document.getElementById('resultPlaceholder').classList.add('d-none');
+    document.getElementById('resultOutput').classList.add('d-none');
+    document.getElementById('resultError').classList.add('d-none');
+    document.getElementById('resultLoading').classList.remove('d-none');
+
+    document.getElementById('runQueryBtn').disabled = true;
+
+    try {
+        const response = await fetch('/api/nl-to-sql', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ query, schema_id: schemaId || null, db_type: dbType })
+        });
+        const data = await response.json();
+
+        document.getElementById('resultLoading').classList.add('d-none');
+
+        if (data.error) {
+            document.getElementById('errorMessage').textContent = data.error;
+            document.getElementById('resultError').classList.remove('d-none');
+        } else {
+            document.getElementById('sqlResult').textContent = data.sql || '-- No SQL produced';
+
+            const explanation = data.explanation || '';
+            if (explanation) {
+                document.getElementById('sqlExplanation').textContent = explanation;
+                document.getElementById('explanationCard').classList.remove('d-none');
+            } else {
+                document.getElementById('explanationCard').classList.add('d-none');
+            }
+
+            const tables = data.tables_used || [];
+            const tablesEl = document.getElementById('tablesUsed');
+            tablesEl.innerHTML = tables.length
+                ? tables.map(t => `<span class="badge-blue"><i class="fa-solid fa-table me-1"></i>${t}</span>`).join('')
+                : '<span class="text-muted small">None</span>';
+
+            const tips = data.optimization_tips || [];
+            const tipsEl = document.getElementById('optimizationTips');
+            tipsEl.innerHTML = tips.length
+                ? tips.map(tip => `<div><i class="fa-solid fa-check text-success me-1"></i>${tip}</div>`).join('')
+                : '<span class="text-muted small">No specific optimization flags.</span>';
+
+            document.getElementById('resultOutput').classList.remove('d-none');
+        }
+    } catch (err) {
+        document.getElementById('resultLoading').classList.add('d-none');
+        document.getElementById('errorMessage').textContent = 'Network execution error: ' + err.message;
+        document.getElementById('resultError').classList.remove('d-none');
+    } finally {
+        document.getElementById('runQueryBtn').disabled = false;
+    }
+}
+
+document.getElementById('queryInput').addEventListener('keydown', function(e) {
+    if (e.ctrlKey && e.key === 'Enter') runQuery();
+});
+</script>
+{% endblock %}

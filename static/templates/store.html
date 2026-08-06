@@ -1,0 +1,162 @@
+{% extends 'base.html' %}
+{% block title %}Schema Catalog Marketplace — SMART DB{% endblock %}
+
+{% block content %}
+<div class="row">
+
+    <!-- Filters Sidebar -->
+    <div class="col-lg-3 col-md-4 mb-4">
+        <div class="card shadow-sm p-3 sticky-top" style="top:90px;">
+            <h6 class="fw-bold mb-3 text-dark"><i class="fa-solid fa-filter me-2 text-primary"></i>Filter Schemas</h6>
+
+            <form method="GET" action="/store" id="filterForm">
+                <!-- Search Query -->
+                <div class="mb-3">
+                    <label class="form-label" for="q">Keyword Search</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light text-muted"><i class="fa-solid fa-magnifying-glass"></i></span>
+                        <input type="text" name="q" id="q" class="form-control" placeholder="Search tables, DDL..."
+                               value="{{ search_query or '' }}">
+                    </div>
+                </div>
+
+                <!-- Industry Filter -->
+                <div class="mb-3">
+                    <label class="form-label" for="industry">Industry Category</label>
+                    <select name="industry" id="industry" class="form-select" onchange="this.form.submit()">
+                        <option value="">All Categories</option>
+                        {% for ind in industries %}
+                        <option value="{{ ind }}" {% if industry == ind %}selected{% endif %}>{{ ind }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Sorting Selection -->
+                <div class="mb-3">
+                    <label class="form-label" for="sort">Sort Order</label>
+                    <select name="sort" id="sort" class="form-select" onchange="this.form.submit()">
+                        <option value="newest"   {% if sort_by=='newest' %}selected{% endif %}>Newest First</option>
+                        <option value="popular"  {% if sort_by=='popular' %}selected{% endif %}>Most Viewed</option>
+                        <option value="downloads"{% if sort_by=='downloads' %}selected{% endif %}>Most Downloaded</option>
+                        <option value="likes"    {% if sort_by=='likes' %}selected{% endif %}>Most Liked</option>
+                    </select>
+                </div>
+
+                <div class="d-flex gap-2 mb-3">
+                    <button type="submit" class="btn btn-primary btn-sm flex-fill">
+                        <i class="fa-solid fa-magnifying-glass me-1"></i> Search
+                    </button>
+                    <a href="/store" class="btn btn-outline-secondary btn-sm">
+                        <i class="fa-solid fa-rotate-left me-1 text-icon-amber"></i> Reset
+                    </a>
+                </div>
+            </form>
+
+            <hr class="my-3">
+
+            <!-- Catalog Summary Statistics -->
+            <div class="row text-center g-2 mb-3">
+                <div class="col-6">
+                    <div class="p-2 bg-light rounded border">
+                        <div class="fw-bold text-icon-blue fs-5">{{ total_count }}</div>
+                        <div class="text-muted small">Total Schemas</div>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="p-2 bg-light rounded border">
+                        <div class="fw-bold text-icon-green fs-5">{{ ai_count }}</div>
+                        <div class="text-muted small">AI Generated</div>
+                    </div>
+                </div>
+            </div>
+
+            <a href="/create" class="btn btn-purple w-100 btn-sm">
+                <i class="fa-solid fa-plus me-1"></i> Create New Schema
+            </a>
+        </div>
+    </div>
+
+    <!-- Schema Cards Grid -->
+    <div class="col-lg-9 col-md-8">
+        <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
+            <div>
+                <h1 class="fw-bold mb-1 text-dark fs-3"><i class="fa-solid fa-boxes-stacked text-icon-green me-2"></i>Schema Marketplace</h1>
+                <p class="text-secondary mb-0 small">
+                    Showing {{ databases|length }} schema{{ 's' if databases|length != 1 else '' }}
+                    {% if search_query %} matching "<strong>{{ search_query }}</strong>"{% endif %}
+                    {% if industry %} in category <strong>{{ industry }}</strong>{% endif %}
+                </p>
+            </div>
+            <a href="/create" class="btn btn-purple px-3">
+                <i class="fa-solid fa-wand-magic-sparkles me-1"></i> AI Generator
+            </a>
+        </div>
+
+        {% if databases %}
+        <div class="row g-3">
+            {% for db in databases %}
+            <div class="col-md-6 col-xl-4">
+                <div class="card h-100 p-3 shadow-sm d-flex flex-column">
+                    <!-- Title & Industry -->
+                    <div class="d-flex align-items-start justify-content-between mb-2 gap-2">
+                        <div class="flex-fill" style="min-width:0;">
+                            <a href="/database/{{ db.id }}" class="text-decoration-none">
+                                <h6 class="fw-bold mb-1 text-truncate text-dark">{{ db.project_name }}</h6>
+                            </a>
+                            <span class="badge-blue me-1">{{ db.industry or 'General' }}</span>
+                            {% if db.ai_generated %}<span class="badge-purple me-1"><i class="fa-solid fa-robot me-1 text-icon-purple"></i> AI</span>{% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Requirements Snippet -->
+                    <p class="text-secondary small mb-2 flex-grow-1" style="line-height:1.4;">
+                        {{ db.requirements[:100] }}{% if db.requirements|length > 100 %}...{% endif %}
+                    </p>
+
+                    <!-- SQL Code Preview Box -->
+                    <div class="code-container p-2 mb-3" style="max-height:65px; font-size:0.75rem;">
+                        <pre class="m-0 text-info"><code>{{ db.sql_code[:140] }}...</code></pre>
+                    </div>
+
+                    <!-- Tags -->
+                    {% if db.tags_list %}
+                    <div class="d-flex flex-wrap gap-1 mb-3">
+                        {% for tag in db.tags_list[:3] %}
+                        <span class="badge-gov" style="font-size:0.7rem;"><i class="fa-solid fa-hashtag me-1 text-icon-cyan"></i>{{ tag }}</span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+
+                    <!-- Footer & Action Buttons -->
+                    <div class="d-flex align-items-center justify-content-between mt-auto pt-2 border-top">
+                        <div class="d-flex gap-2 text-muted small">
+                            <span title="Views"><i class="fa-solid fa-eye me-1 text-icon-cyan"></i>{{ db.views_count or 0 }}</span>
+                            <span title="Likes"><i class="fa-solid fa-heart me-1 text-icon-red"></i>{{ db.likes_count or 0 }}</span>
+                            <span title="Downloads"><i class="fa-solid fa-download me-1 text-icon-green"></i>{{ db.downloads_count or 0 }}</span>
+                        </div>
+                        <div class="d-flex gap-1">
+                            <a href="/download-sql/{{ db.id }}" class="btn btn-outline-cyan btn-sm px-2 py-1" title="Download SQL DDL">
+                                <i class="fa-solid fa-download"></i>
+                            </a>
+                            <a href="/database/{{ db.id }}" class="btn btn-primary btn-sm px-2 py-1">
+                                Open <i class="fa-solid fa-arrow-right ms-1"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        {% else %}
+        <div class="text-center py-5 bg-light rounded-3">
+            <i class="fa-solid fa-boxes-stacked text-muted fs-1 mb-2"></i>
+            <h5 class="fw-bold text-dark">No schemas found</h5>
+            <p class="text-secondary small mb-3">{% if search_query %}Try refining your search keyword or industry filter.{% else %}Be the first to generate a database schema!{% endif %}</p>
+            <a href="/create" class="btn btn-purple px-4"><i class="fa-solid fa-plus me-1"></i> Generate First Schema</a>
+        </div>
+        {% endif %}
+    </div>
+
+</div>
+{% endblock %}

@@ -1,0 +1,32 @@
+# Core Flask
+flask==3.0.3
+flask-sqlalchemy==3.1.1
+flask-login==0.6.3
+flask-limiter==3.7.0
+flask-wtf==1.2.1
+
+# AI Engine
+openai==1.35.0
+python-dotenv==1.0.1
+
+# Security
+bcrypt==4.1.3
+bleach==6.1.0
+
+# Database Drivers
+pyodbc==5.1.0
+pymysql==1.1.1
+psycopg2-binary==2.9.9
+
+# Export
+openpyxl>=3.1.2
+
+# Caching
+redis==5.0.4
+
+# Production Server
+gunicorn==22.0.0
+
+# Testing
+pytest==8.2.2
+pytest-flask==1.3.0

@@ -1,0 +1,262 @@
+{% extends 'base.html' %}
+{% block title %}Dynamic CRUD Browser — {{ database.project_name }} — SMART DB{% endblock %}
+
+{% block content %}
+<div class="row">
+
+    <!-- Table Sidebar Navigation -->
+    <div class="col-lg-3 mb-4">
+        <div class="card shadow-sm p-3">
+            <div class="d-flex align-items-center gap-2 mb-3 small">
+                <a href="/database/{{ database.id }}" class="text-secondary">
+                    <i class="fa-solid fa-chevron-left me-1"></i> {{ database.project_name }}
+                </a>
+            </div>
+            <h6 class="fw-bold mb-1 text-dark"><i class="fa-solid fa-table me-2 text-primary"></i>Database Tables</h6>
+            <p class="text-muted small mb-3">Live SQL Server Instance</p>
+
+            <div class="d-flex flex-column gap-1">
+                {% for tbl in table_info %}
+                <a href="/crud/{{ database.id }}/{{ tbl.name }}"
+                   class="d-flex align-items-center justify-content-between px-3 py-2 rounded-2 text-decoration-none border mb-1
+                          {% if active_table == tbl.name %}bg-primary text-white border-primary fw-bold{% else %}bg-light text-dark border-light{% endif %}">
+                    <div class="font-monospace small">
+                        <i class="fa-solid fa-table me-2"></i> {{ tbl.name }}
+                    </div>
+                    <span class="badge {% if active_table == tbl.name %}bg-white text-primary{% else %}bg-secondary{% endif %} rounded-pill small">
+                        {{ tbl.row_count }}
+                    </span>
+                </a>
+                {% endfor %}
+            </div>
+            {% if not table_info %}
+            <p class="text-muted text-center py-3 small">No tables detected.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Main Workspace -->
+    <div class="col-lg-9">
+
+        {% if mode == 'home' %}
+        <!-- Database Overview View -->
+        <div class="card shadow-sm p-4">
+            <div class="d-flex align-items-center gap-3 mb-4 border-bottom pb-3">
+                <div class="p-3 bg-light rounded text-primary fs-3">
+                    <i class="fa-solid fa-database"></i>
+                </div>
+                <div>
+                    <h4 class="fw-bold mb-0 text-dark">{{ database.project_name }}</h4>
+                    <p class="text-secondary small mb-0">SQL Server Management Console (Windows Auth)</p>
+                </div>
+                <div class="ms-auto">
+                    <span class="badge-blue"><i class="fa-solid fa-layer-group me-1"></i> {{ table_info|length }} Tables</span>
+                </div>
+            </div>
+
+            <div class="row g-3">
+                {% for tbl in table_info %}
+                <div class="col-md-6 col-xl-4">
+                    <a href="/crud/{{ database.id }}/{{ tbl.name }}" class="text-decoration-none">
+                        <div class="card p-3 h-100 border hover-shadow">
+                            <div class="d-flex align-items-center justify-content-between mb-2">
+                                <span class="font-monospace fw-bold text-primary small">
+                                    <i class="fa-solid fa-table me-1"></i> {{ tbl.name }}
+                                </span>
+                                <span class="badge-gov" style="font-size:0.7rem;">{{ tbl.row_count }} rows</span>
+                            </div>
+                            <div class="text-muted small">
+                                {{ tbl.columns|length }} columns:
+                                {% for col in tbl.columns[:3] %}
+                                <span class="font-monospace text-dark">{{ col.name }}</span>{% if not loop.last %}, {% endif %}
+                                {% endfor %}
+                                {% if tbl.columns|length > 3 %}...{% endif %}
+                            </div>
+                        </div>
+                    </a>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        {% elif mode == 'list' %}
+        <!-- Table Record Browsing View -->
+        <div class="card shadow-sm p-4 mb-3">
+            <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+                <div>
+                    <h5 class="fw-bold mb-0 text-dark">
+                        <i class="fa-solid fa-table text-icon-blue me-2"></i>
+                        <span class="font-monospace">{{ active_table }}</span>
+                    </h5>
+                    <span class="text-secondary small">{{ total }} total records &bull; {{ columns|length }} columns</span>
+                </div>
+                <div class="d-flex gap-2">
+                    <a href="/crud/{{ database.id }}/{{ active_table }}/insert" class="btn btn-success btn-sm">
+                        <i class="fa-solid fa-plus me-1"></i> Insert Row
+                    </a>
+                    <a href="/export-csv/{{ database.id }}?table={{ active_table }}" class="btn btn-outline-cyan btn-sm">
+                        <i class="fa-solid fa-file-csv me-1 text-icon-cyan"></i> Export CSV
+                    </a>
+                </div>
+            </div>
+
+            {% if rows %}
+            <div class="table-container">
+                <table class="table table-striped align-middle">
+                    <thead>
+                        <tr>
+                            {% for col in columns %}
+                            <th class="font-monospace small">
+                                {{ col.name }}
+                                {% if col.pk %}<span class="badge-purple ms-1" style="font-size:0.65rem;">PK</span>{% endif %}
+                            </th>
+                            {% endfor %}
+                            <th class="small text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in rows %}
+                        <tr>
+                            {% for col in columns %}
+                            <td class="font-monospace small text-truncate" style="max-width:200px;" title="{{ row[col.name] }}">
+                                {% set val = row[col.name] %}
+                                {% if val is none %}
+                                <span class="text-muted fst-italic">NULL</span>
+                                {% else %}
+                                {{ val }}
+                                {% endif %}
+                            </td>
+                            {% endfor %}
+                            <td class="text-end" style="white-space:nowrap;">
+                                {% if pk_col %}
+                                <a href="/crud/{{ database.id }}/{{ active_table }}/edit/{{ row[pk_col] }}"
+                                   class="btn btn-sm btn-outline-warning py-1 px-2" title="Edit Record">
+                                    <i class="fa-solid fa-pen-to-square text-icon-amber"></i>
+                                </a>
+                                <form method="POST" action="/crud/{{ database.id }}/{{ active_table }}/delete/{{ row[pk_col] }}"
+                                      style="display:inline;" onsubmit="return confirm('Delete this row?');">
+                                    <button type="submit" class="btn btn-sm btn-danger py-1 px-2" title="Delete Record">
+                                        <i class="fa-solid fa-trash"></i>
+                                    </button>
+                                </form>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            {% if total > per_page %}
+            <div class="d-flex justify-content-between align-items-center mt-3 small text-secondary">
+                <span>Showing {{ (page-1)*per_page + 1 }}–{{ [page*per_page, total]|min }} of {{ total }} entries</span>
+                <div class="d-flex gap-1">
+                    {% if page > 1 %}
+                    <a href="/crud/{{ database.id }}/{{ active_table }}?page={{ page - 1 }}" class="btn btn-sm btn-outline-secondary">
+                        <i class="fa-solid fa-chevron-left me-1"></i> Previous
+                    </a>
+                    {% endif %}
+                    {% if page * per_page < total %}
+                    <a href="/crud/{{ database.id }}/{{ active_table }}?page={{ page + 1 }}" class="btn btn-sm btn-outline-secondary">
+                        Next <i class="fa-solid fa-chevron-right ms-1"></i>
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+
+            {% else %}
+            <div class="text-center py-5 bg-light rounded-3">
+                <i class="fa-solid fa-table text-muted fs-1 mb-2"></i>
+                <p class="text-secondary small mb-3">No records found in table <strong>{{ active_table }}</strong>.</p>
+                <a href="/crud/{{ database.id }}/{{ active_table }}/insert" class="btn btn-primary btn-sm">
+                    <i class="fa-solid fa-plus me-1"></i> Insert First Record
+                </a>
+            </div>
+            {% endif %}
+        </div>
+
+        {% elif mode == 'insert' %}
+        <!-- Insert Row Form -->
+        <div class="card shadow-sm p-4">
+            <h5 class="fw-bold mb-3 text-dark">
+                <i class="fa-solid fa-plus text-primary me-2"></i>
+                Insert New Record into <span class="font-monospace">{{ active_table }}</span>
+            </h5>
+            <form method="POST" action="/crud/{{ database.id }}/{{ active_table }}/insert">
+                <div class="row g-3">
+                    {% for col in insert_cols %}
+                    <div class="col-md-6">
+                        <label class="form-label font-monospace fw-bold small text-dark" for="field_{{ col.name }}">
+                            {{ col.name }}
+                            <span class="text-muted fw-normal ms-1">({{ col.type }})</span>
+                            {% if col.notnull %}<span class="text-danger ms-1">*</span>{% endif %}
+                        </label>
+                        {% if 'TEXT' in col.type.upper() %}
+                        <textarea name="{{ col.name }}" id="field_{{ col.name }}" class="form-control" rows="2"
+                                  placeholder="{{ col.dflt_value or '' }}"
+                                  {% if col.notnull %}required{% endif %}></textarea>
+                        {% elif 'BOOL' in col.type.upper() %}
+                        <select name="{{ col.name }}" id="field_{{ col.name }}" class="form-select">
+                            <option value="">-- NULL --</option>
+                            <option value="1">True (1)</option>
+                            <option value="0">False (0)</option>
+                        </select>
+                        {% else %}
+                        <input type="text" name="{{ col.name }}" id="field_{{ col.name }}" class="form-control"
+                               placeholder="{{ col.dflt_value or col.type }}"
+                               {% if col.notnull %}required{% endif %}>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+                <div class="d-flex gap-2 mt-4 pt-2 border-top">
+                    <button type="submit" class="btn btn-primary px-4"><i class="fa-solid fa-check me-1"></i> Submit Record</button>
+                    <a href="/crud/{{ database.id }}/{{ active_table }}" class="btn btn-outline-secondary px-4"><i class="fa-solid fa-xmark me-1"></i> Cancel</a>
+                </div>
+            </form>
+        </div>
+
+        {% elif mode == 'edit' %}
+        <!-- Edit Record Form -->
+        <div class="card shadow-sm p-4">
+            <h5 class="fw-bold mb-1 text-dark">
+                <i class="fa-solid fa-pen-to-square text-primary me-2"></i>
+                Edit Record #{{ row_id }} in <span class="font-monospace">{{ active_table }}</span>
+            </h5>
+            <p class="text-secondary small mb-3">Update column values and submit changes.</p>
+            <form method="POST" action="/crud/{{ database.id }}/{{ active_table }}/edit/{{ row_id }}">
+                <div class="row g-3">
+                    {% for col in edit_cols %}
+                    <div class="col-md-6">
+                        <label class="form-label font-monospace fw-bold small text-dark" for="edit_field_{{ col.name }}">
+                            {{ col.name }}
+                            <span class="text-muted fw-normal ms-1">({{ col.type }})</span>
+                        </label>
+                        {% if 'TEXT' in col.type.upper() %}
+                        <textarea name="{{ col.name }}" id="edit_field_{{ col.name }}" class="form-control" rows="2">{{ row.get(col.name, '') }}</textarea>
+                        {% elif 'BOOL' in col.type.upper() %}
+                        <select name="{{ col.name }}" id="edit_field_{{ col.name }}" class="form-select">
+                            <option value="">-- NULL --</option>
+                            <option value="1" {% if row.get(col.name) == 1 %}selected{% endif %}>True (1)</option>
+                            <option value="0" {% if row.get(col.name) == 0 %}selected{% endif %}>False (0)</option>
+                        </select>
+                        {% else %}
+                        <input type="text" name="{{ col.name }}" id="edit_field_{{ col.name }}" class="form-control"
+                               value="{{ row.get(col.name, '') if row.get(col.name) is not none else '' }}">
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+                <div class="d-flex gap-2 mt-4 pt-2 border-top">
+                    <button type="submit" class="btn btn-primary px-4"><i class="fa-solid fa-floppy-disk me-1"></i> Save Changes</button>
+                    <a href="/crud/{{ database.id }}/{{ active_table }}" class="btn btn-outline-secondary px-4"><i class="fa-solid fa-xmark me-1"></i> Cancel</a>
+                </div>
+            </form>
+        </div>
+        {% endif %}
+
+    </div>
+</div>
+{% endblock %}

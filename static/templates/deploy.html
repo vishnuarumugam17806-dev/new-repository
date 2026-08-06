@@ -1,0 +1,162 @@
+{% extends 'base.html' %}
+
+{% block title %}Deploy Database — SMART DB{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <div class="d-flex align-items-center gap-2 mb-3">
+            <a href="/store" class="btn btn-outline-secondary btn-sm">
+                <i class="fa-solid fa-chevron-left me-1 text-icon-indigo"></i> Marketplace
+            </a>
+            <span class="text-muted">/</span>
+            <span class="fw-bold text-dark fs-6">Target DBMS Deployment</span>
+        </div>
+
+        <div class="row g-4">
+            <div class="col-md-5">
+                <div class="card shadow-sm p-4 h-100">
+                    <span class="badge-purple mb-2"><i class="fa-solid fa-sitemap me-1 text-icon-purple"></i> Database Architecture</span>
+                    <h4 class="fw-bold text-dark mb-1">{{ database.project_name }}</h4>
+                    <p class="text-secondary small mb-3">{{ database.requirements }}</p>
+
+                    <h6 class="fw-bold text-dark small mb-2"><i class="fa-solid fa-code me-1 text-icon-blue"></i>Target SQL DDL</h6>
+                    <div class="code-container p-3" style="max-height: 260px;">
+                        <pre class="m-0 text-info"><code>{{ database.sql_code }}</code></pre>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-7">
+                <div class="card shadow-sm p-4">
+                    <h4 class="fw-bold text-dark mb-2"><i class="fa-solid fa-cloud-arrow-up text-icon-green me-2"></i>Execute Target Deployment</h4>
+                    <p class="text-secondary small mb-4">Select your target database engine and credentials. SMART DB will establish the link, verify the database schema, compile, and execute the DDL queries.</p>
+
+                    <form method="POST">
+                        <div class="mb-3">
+                            <label class="form-label" for="dbTypeSelect">Database Management System (DBMS)</label>
+                            <select name="db_type" id="dbTypeSelect" class="form-select">
+                                <option value="sqlite" {% if db_type == 'sqlite' %}selected{% endif %}>SQLite (Local Compile &amp; Download .db)</option>
+                                <option value="mysql" {% if db_type == 'mysql' %}selected{% endif %}>MySQL RDBMS Server</option>
+                                <option value="postgresql" {% if db_type == 'postgresql' %}selected{% endif %}>PostgreSQL Server</option>
+                                <option value="mssql" {% if db_type == 'mssql' %}selected{% endif %}>Microsoft SQL Server (pyodbc)</option>
+                            </select>
+                        </div>
+
+                        <div id="credentialsBlock" class="d-none">
+                            <div class="row">
+                                <div class="col-sm-8 mb-3">
+                                    <label class="form-label" for="host">Server Host / Hostname</label>
+                                    <input type="text" name="host" id="host" class="form-control" value="{{ host or 'localhost' }}" placeholder="localhost">
+                                </div>
+                                <div class="col-sm-4 mb-3">
+                                    <label class="form-label" for="portField">Port</label>
+                                    <input type="text" name="port" id="portField" class="form-control" value="{{ port or '' }}" placeholder="Default">
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-sm-6 mb-3">
+                                    <label class="form-label" for="username">DB Username</label>
+                                    <input type="text" name="username" id="username" class="form-control" value="{{ username or '' }}" placeholder="e.g. root / postgres">
+                                </div>
+                                <div class="col-sm-6 mb-3">
+                                    <label class="form-label" for="password">DB Password</label>
+                                    <input type="password" name="password" id="password" class="form-control" value="{{ password or '' }}" placeholder="Credentials">
+                                </div>
+                            </div>
+                            <div class="mb-4">
+                                <label class="form-label" for="db_name">Database Name</label>
+                                <input type="text" name="db_name" id="db_name" class="form-control" value="{{ db_name or '' }}" placeholder="e.g. HospitalDB">
+                                <div class="form-text">SMART DB will attempt to create the database if it does not already exist on the server.</div>
+                            </div>
+                        </div>
+
+                        <div id="sqliteInfoBlock" class="alert alert-info mb-4">
+                            <i class="fa-solid fa-circle-info me-2 text-icon-cyan"></i>
+                            <span><strong>Local SQLite Compiler:</strong> Compiles a standalone <strong>.db</strong> SQLite binary file on the server available for instant download.</span>
+                        </div>
+
+                        <button type="submit" class="btn btn-success w-100 py-2 fw-bold">
+                            <i class="fa-solid fa-play me-1"></i> Deploy &amp; Build Database
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        {% if logs %}
+        <div class="card shadow-sm mt-4 p-4" id="logs-panel">
+            <div class="d-flex align-items-center justify-content-between mb-3">
+                <h5 class="fw-bold text-dark m-0"><i class="fa-solid fa-terminal text-primary me-2"></i>Deployment Logs</h5>
+                <span class="badge {% if success %}bg-success{% else %}bg-danger{% endif %} py-2 px-3 fw-bold text-white">
+                    {% if success %}<i class="fa-solid fa-check me-1"></i> COMPLETED{% else %}<i class="fa-solid fa-xmark me-1"></i> FAILED{% endif %}
+                </span>
+            </div>
+
+            <div class="code-container p-3" style="max-height: 250px;">
+                <pre class="m-0 text-light"><code>{% for log in logs %}&gt; {{ log }}
+{% endfor %}</code></pre>
+            </div>
+
+            {% if success and download_url %}
+            <div class="text-center py-3 mt-3">
+                <a href="{{ download_url }}" class="btn btn-success btn-lg px-5" download>
+                    <i class="fa-solid fa-download me-2"></i> Download SQLite .db File
+                </a>
+            </div>
+            {% endif %}
+
+            {% if success and not download_url %}
+            <div class="mt-4 p-4 rounded bg-light border border-success text-center">
+                <h5 class="fw-bold text-success mb-2"><i class="fa-solid fa-circle-check me-1"></i> Database Live in Your System!</h5>
+                <p class="text-secondary small mb-3">
+                    Database <strong class="text-dark">{{ db_name }}</strong> created on host <strong class="text-dark">{{ host }}</strong>.
+                </p>
+                <div class="d-flex justify-content-center gap-2">
+                    <a href="/database/{{ database.id }}" class="btn btn-outline-primary btn-sm px-3">View Schema Details</a>
+                    <a href="/store" class="btn btn-primary btn-sm px-3">Return to Catalog</a>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    const dbSelect = document.getElementById("dbTypeSelect");
+    const credsBlock = document.getElementById("credentialsBlock");
+    const sqliteInfo = document.getElementById("sqliteInfoBlock");
+    const portField = document.getElementById("portField");
+
+    function updateFormFields() {
+        const value = dbSelect.value;
+        if (value === "sqlite") {
+            credsBlock.classList.add("d-none");
+            sqliteInfo.classList.remove("d-none");
+        } else {
+            credsBlock.classList.remove("d-none");
+            sqliteInfo.classList.add("d-none");
+            if (value === "mysql") {
+                portField.placeholder = "3306";
+            } else if (value === "postgresql") {
+                portField.placeholder = "5432";
+            } else if (value === "mssql") {
+                portField.placeholder = "1433";
+            }
+        }
+    }
+
+    dbSelect.addEventListener("change", updateFormFields);
+    updateFormFields();
+
+    const logsPanel = document.getElementById("logs-panel");
+    if (logsPanel) {
+        logsPanel.scrollIntoView({ behavior: 'smooth' });
+    }
+});
+</script>
+{% endblock %}

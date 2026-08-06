@@ -1,0 +1,267 @@
+{% extends 'base.html' %}
+{% block title %}AI Database Generator — SMART DB{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+<div class="col-xl-11">
+
+    <!-- Page Title & Header -->
+    <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-3">
+        <div>
+            <h1 class="fw-bold mb-1"><i class="fa-solid fa-wand-magic-sparkles text-icon-purple me-2"></i>AI Database Generator</h1>
+            <p class="text-secondary mb-0">Describe your system requirements in plain English to automatically construct production-grade SQL databases.</p>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            {% if ai_enabled %}
+            <span class="badge-purple"><i class="fa-solid fa-circle-check me-1 text-icon-green"></i> GPT-4o Active</span>
+            {% else %}
+            <span class="badge-gov"><i class="fa-solid fa-microchip me-1 text-icon-purple"></i> Smart Engine</span>
+            {% endif %}
+            <span class="badge-green"><i class="fa-solid fa-shield-halved me-1 text-icon-green"></i> v3.0 Enterprise</span>
+        </div>
+    </div>
+
+    <!-- Main Generator Form Card -->
+    <div class="card mb-4 p-4 shadow-sm">
+        <div class="card-body p-md-4">
+            <form method="POST" id="generatorForm">
+
+                <div class="row g-4 mb-4">
+                    <div class="col-md-6">
+                        <label class="form-label" for="project_name">
+                            <i class="fa-solid fa-database text-icon-blue me-1"></i> Database Name <span class="text-danger">*</span>
+                        </label>
+                        <input type="text" name="project_name" id="project_name" class="form-control"
+                               placeholder="e.g. HospitalDB" required
+                               value="{{ project_name or request.args.get('name', '') }}">
+                        <div class="form-text">Specify the name of the database to be generated and registered.</div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">
+                            <i class="fa-solid fa-server text-icon-cyan me-1"></i> Target Database Server
+                        </label>
+                        <div class="p-2 px-3 rounded-2 bg-light border">
+                            <span class="text-dark small fw-bold"><i class="fa-solid fa-hard-drive me-1 text-icon-blue"></i> SQL Server Express (localhost\SQLEXPRESS04)</span>
+                            <span class="badge bg-success ms-2 px-2 py-1" style="font-size:0.7rem;"><i class="fa-solid fa-lock me-1"></i> Windows Auth</span>
+                        </div>
+                        <div class="form-text">Direct native connection configured in environment settings.</div>
+                    </div>
+                </div>
+
+                <!-- Input Method Tabs -->
+                <ul class="nav nav-tabs mb-4" id="inputTabs">
+                    <li class="nav-item">
+                        <a class="nav-link active" data-bs-toggle="tab" href="#tab-nlp">
+                            <i class="fa-solid fa-robot me-1 text-icon-purple"></i> AI Natural Language
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" data-bs-toggle="tab" href="#tab-manual">
+                            <i class="fa-solid fa-code me-1 text-icon-teal"></i> Manual Column Spec
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" data-bs-toggle="tab" href="#tab-template">
+                            <i class="fa-solid fa-layer-group me-1 text-icon-indigo"></i> Pre-built Templates
+                        </a>
+                    </li>
+                </ul>
+
+                <div class="tab-content mb-4">
+                    <!-- Natural Language Processing Tab -->
+                    <div class="tab-pane fade show active" id="tab-nlp">
+                        <label class="form-label" for="requirements">System Requirements &amp; Business Rules</label>
+                        <textarea name="requirements" id="requirements" class="form-control" rows="6"
+                            placeholder="Example: I need a Hospital Management System where patients book appointments with doctors. The system should track departments, manage billing, store patient medical history, and handle prescription records."></textarea>
+                        <div class="form-text mt-2">
+                            <i class="fa-solid fa-lightbulb me-1 text-icon-amber"></i>
+                            The AI engine extracts entities, resolves relationships, performs 3NF normalization, and produces ready-to-run DDL scripts.
+                        </div>
+
+                        <!-- Quick Requirements Examples -->
+                        <div class="d-flex flex-wrap align-items-center gap-2 mt-3">
+                            <span class="text-secondary small fw-semibold me-1">Quick Samples:</span>
+                            {% for ex in [
+                                ('Hospital Management System with patients, doctors, appointments and billing', 'btn-outline-purple', 'fa-hospital', 'text-icon-purple'),
+                                ('E-commerce platform with products, orders, customers and inventory', 'btn-outline-success', 'fa-cart-shopping', 'text-icon-green'),
+                                ('University LMS with students, courses, grades and assignments', 'btn-outline-primary', 'fa-graduation-cap', 'text-icon-blue'),
+                                ('Library system with books, members, borrowing and fines', 'btn-outline-cyan', 'fa-book', 'text-icon-cyan'),
+                                ('HR system with employees, departments, leave and payroll', 'btn-outline-warning', 'fa-users-gear', 'text-icon-amber'),
+                            ] %}
+                            <button type="button" class="btn {{ ex[1] }} btn-sm rounded-2 py-1 px-2" style="font-size:0.8rem;"
+                                    onclick="document.getElementById('requirements').value='I need a {{ ex[0] }}.'; document.getElementById('project_name').value=sanitizeDbName('{{ ex[0].split(' with')[0] }}');">
+                                <i class="fa-solid {{ ex[2] }} me-1 {{ ex[3] }}"></i> {{ ex[0].split(' with')[0] }}
+                            </button>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <!-- Manual Specification Tab -->
+                    <div class="tab-pane fade" id="tab-manual">
+                        <div class="row g-3">
+                            <div class="col-md-5">
+                                <label class="form-label" for="table_name">Table Name</label>
+                                <input type="text" name="table_name" id="table_name" class="form-control" placeholder="e.g. employees">
+                            </div>
+                            <div class="col-md-7">
+                                <label class="form-label" for="columns_spec">Column Definitions</label>
+                                <textarea name="columns_spec" id="columns_spec" class="form-control" rows="5"
+                                    placeholder="id:INTEGER PRIMARY KEY&#10;name:VARCHAR(100)&#10;email:VARCHAR(255)&#10;salary:DECIMAL(10,2)&#10;department_id:INTEGER"></textarea>
+                                <div class="form-text">Format: <code>column_name:DATA_TYPE</code> — one per line.</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Industry Template Selection Tab -->
+                    <div class="tab-pane fade" id="tab-template">
+                        <label class="form-label">Select an Industry Template</label>
+                        <div class="row g-3">
+                            {% for tmpl in templates_featured %}
+                            <div class="col-md-4">
+                                <label style="cursor:pointer; display:block;" class="h-100">
+                                    <input type="radio" name="use_template" value="{{ tmpl.id }}" style="display:none;">
+                                    <div class="card h-100 p-3 template-card" id="tmpl-card-{{ tmpl.id }}"
+                                         onclick="selectTemplate({{ tmpl.id }}, '{{ tmpl.name }}')">
+                                        <div class="icon-box icon-box-purple mb-2">
+                                            <i class="fa-solid {{ tmpl.icon if tmpl.icon and tmpl.icon.startswith('fa-') else 'fa-layer-group' }}"></i>
+                                        </div>
+                                        <h6 class="fw-bold text-dark mb-1">{{ tmpl.name }}</h6>
+                                        <p class="text-muted small mb-2">{{ tmpl.description[:80] }}...</p>
+                                        <span class="badge-purple"><i class="fa-solid fa-tag me-1"></i> {{ tmpl.category }}</span>
+                                    </div>
+                                </label>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        <a href="/templates" class="btn btn-outline-indigo btn-sm mt-3">
+                            <i class="fa-solid fa-layer-group me-1 text-icon-indigo"></i> Browse All Templates
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Form Submit and Reset Controls -->
+                <div class="d-flex gap-3 flex-wrap align-items-center pt-2 border-top">
+                    <button class="btn btn-purple btn-lg px-4" type="submit" id="submitBtn">
+                        <i class="fa-solid fa-wand-magic-sparkles me-2"></i> Generate Database Schema
+                    </button>
+                    <button class="btn btn-outline-secondary py-2 px-3" type="reset" onclick="clearForm()">
+                        <i class="fa-solid fa-rotate-left me-1 text-icon-amber"></i> Reset Form
+                    </button>
+                    <span class="text-muted small ms-auto">
+                        <i class="fa-solid fa-clock me-1 text-icon-blue"></i> Average processing time: 5–15 seconds
+                    </span>
+                </div>
+
+                <!-- Pipeline Processing Status Overlay -->
+                <div id="loadingPanel" class="mt-4" style="display:none;">
+                    <div class="card p-4 border-primary bg-light">
+                        <div class="d-flex align-items-center gap-3 mb-3">
+                            <div class="spinner-border text-primary" role="status" style="width:1.5rem; height:1.5rem;"></div>
+                            <span class="fw-bold fs-6 text-primary">AI Schema Pipeline Executing...</span>
+                        </div>
+                        <div class="ai-steps" id="aiSteps">
+                            <div class="ai-step pending py-1 text-secondary small" id="step-1"><span class="fw-bold me-2">Step 1:</span> Analyzing requirements text</div>
+                            <div class="ai-step pending py-1 text-secondary small" id="step-2"><span class="fw-bold me-2">Step 2:</span> Extracting entities, attributes &amp; relationships</div>
+                            <div class="ai-step pending py-1 text-secondary small" id="step-3"><span class="fw-bold me-2">Step 3:</span> Constructing 3NF relational tables</div>
+                            <div class="ai-step pending py-1 text-secondary small" id="step-4"><span class="fw-bold me-2">Step 4:</span> Generating Mermaid ER diagram source</div>
+                            <div class="ai-step pending py-1 text-secondary small" id="step-5"><span class="fw-bold me-2">Step 5:</span> Documenting data dictionary</div>
+                            <div class="ai-step pending py-1 text-secondary small" id="step-6"><span class="fw-bold me-2">Step 6:</span> Building mock INSERT data &amp; API specs</div>
+                            <div class="ai-step pending py-1 text-secondary small" id="step-7"><span class="fw-bold me-2">Step 7:</span> Registering database schema</div>
+                        </div>
+                    </div>
+                </div>
+
+                {% if error_logs %}
+                <div class="card mt-4 border-danger bg-light" id="logs-panel">
+                    <div class="card-body p-4">
+                        <div class="d-flex align-items-center justify-content-between mb-3">
+                            <h5 class="fw-bold m-0 text-danger"><i class="fa-solid fa-triangle-exclamation me-2"></i>Deployment Execution Console</h5>
+                            <span class="badge bg-danger px-3 py-2 fw-bold text-white"><i class="fa-solid fa-xmark me-1"></i> Deployment Error</span>
+                        </div>
+                        <pre class="code-container mb-0" style="max-height:250px; overflow-y:auto; color:#F87171;">{% for log in error_logs %}&gt; {{ log }}
+{% endfor %}</pre>
+                    </div>
+                </div>
+                {% endif %}
+
+            </form>
+        </div>
+    </div>
+
+</div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function sanitizeDbName(str) {
+    if (!str) return 'MyDatabase';
+    const cleaned = str.replace(/[^A-Za-z0-9\s_]/g, '')
+                       .split(/[\s_]+/)
+                       .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+                       .join('');
+    return cleaned || 'MyDatabase';
+}
+
+let selectedTemplate = {{ request.args.get('template', 'null') }};
+
+function selectTemplate(id, name) {
+    document.querySelectorAll('.template-card').forEach(c => {
+        c.classList.remove('border-primary', 'bg-light');
+    });
+    const card = document.getElementById('tmpl-card-' + id);
+    if (card) {
+        card.classList.add('border-primary', 'bg-light');
+    }
+    document.querySelectorAll('input[name="use_template"]').forEach(r => {
+        r.checked = (parseInt(r.value) === id);
+    });
+    document.getElementById('project_name').value = sanitizeDbName(name);
+}
+
+if (selectedTemplate) {
+    selectTemplate(selectedTemplate, document.getElementById('project_name').value);
+    const templateTab = document.querySelector('[href="#tab-template"]');
+    if (templateTab) new bootstrap.Tab(templateTab).show();
+}
+
+document.getElementById('generatorForm').addEventListener('submit', function() {
+    const req  = document.getElementById('requirements').value.trim();
+    const cols = document.querySelector('textarea[name="columns_spec"]') ? document.querySelector('textarea[name="columns_spec"]').value.trim() : '';
+    const tmpl = document.querySelector('input[name="use_template"]:checked');
+    if (!req && !cols && !tmpl) return;
+
+    document.getElementById('loadingPanel').style.display = 'block';
+    document.getElementById('submitBtn').disabled = true;
+    document.getElementById('submitBtn').innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Processing...';
+
+    const steps = ['step-1','step-2','step-3','step-4','step-5','step-6','step-7'];
+    let i = 0;
+    const interval = setInterval(() => {
+        if (i > 0) {
+            const prev = document.getElementById(steps[i-1]);
+            prev.classList.remove('text-secondary');
+            prev.classList.add('text-success', 'fw-bold');
+        }
+        if (i < steps.length) {
+            const curr = document.getElementById(steps[i]);
+            curr.classList.remove('text-secondary');
+            curr.classList.add('text-primary', 'fw-bold');
+            i++;
+        } else {
+            clearInterval(interval);
+        }
+    }, 700);
+});
+
+function clearForm() {
+    document.getElementById('requirements').value = '';
+    document.getElementById('project_name').value = '';
+}
+
+const logsPanel = document.getElementById('logs-panel');
+if (logsPanel) {
+    logsPanel.scrollIntoView({ behavior: 'smooth' });
+}
+</script>
+{% endblock %}

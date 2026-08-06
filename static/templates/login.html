@@ -1,0 +1,73 @@
+{% extends 'base.html' %}
+{% block title %}Sign In — SMART DB{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center py-4">
+    <div class="col-md-5 col-lg-4">
+        <div class="text-center mb-4">
+            <div class="d-inline-flex align-items-center justify-content-center p-3 bg-primary text-white rounded-circle shadow-sm mb-2" style="width:64px; height:64px;">
+                <i class="fa-solid fa-lock fs-3"></i>
+            </div>
+            <h2 class="fw-bold text-dark mb-1 fs-3">User Sign In</h2>
+            <p class="text-secondary small">Enter your credentials to access SMART DB</p>
+        </div>
+
+        <div class="card shadow-sm p-4">
+            <form method="POST" action="{{ url_for('auth.login') }}" id="loginForm">
+                <div class="mb-3">
+                    <label for="username" class="form-label">Username</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light text-muted"><i class="fa-solid fa-user"></i></span>
+                        <input type="text" class="form-control" id="username" name="username"
+                               placeholder="Enter your username" required autocomplete="username">
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="password" class="form-label">Password</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light text-muted"><i class="fa-solid fa-key"></i></span>
+                        <input type="password" class="form-control" id="password" name="password"
+                               placeholder="Enter your password" required autocomplete="current-password">
+                        <button type="button" class="btn btn-outline-secondary" onclick="togglePass('password', this)" title="Toggle password visibility">
+                            <i class="fa-solid fa-eye" id="passEye"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary w-100 py-2 mt-2" id="loginBtn">
+                    <i class="fa-solid fa-right-to-bracket me-1"></i> Sign In
+                </button>
+            </form>
+
+            <hr class="my-4">
+
+            <p class="text-center text-secondary small mb-0">
+                Don't have an account?
+                <a href="{{ url_for('auth.register') }}" class="fw-bold text-primary">Create an account</a>
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function togglePass(id, btn) {
+    const input = document.getElementById(id);
+    const icon  = btn.querySelector('i');
+    if (input.type === 'password') {
+        input.type = 'text';
+        icon.className = 'fa-solid fa-eye-slash';
+    } else {
+        input.type = 'password';
+        icon.className = 'fa-solid fa-eye';
+    }
+}
+document.getElementById('loginForm').addEventListener('submit', function() {
+    const btn = document.getElementById('loginBtn');
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Authenticating...';
+    btn.disabled = true;
+});
+</script>
+{% endblock %}
