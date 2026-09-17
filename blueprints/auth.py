@@ -69,11 +69,25 @@ def register():
             role='user',
             avatar_color=avatar_color
         )
-        db.session.add(new_user)
-        db.session.commit()
-
-        flash('Registration successful. Please login to continue.', 'success')
-        return redirect(url_for('auth.login'))
+        try:
+            db.session.add(new_user)
+            db.session.commit()
+            flash('Registration successful. Please login to continue.', 'success')
+            return redirect(url_for('auth.login'))
+        except Exception as e:
+            db.session.rollback()
+            try:
+                from sqlalchemy import text
+                db.session.execute(text("ALTER TABLE users ADD COLUMN full_name VARCHAR(120);"))
+                db.session.commit()
+                db.session.add(new_user)
+                db.session.commit()
+                flash('Registration successful. Please login to continue.', 'success')
+                return redirect(url_for('auth.login'))
+            except Exception:
+                db.session.rollback()
+                flash('An error occurred during registration. Please try again.', 'danger')
+                return redirect(url_for('auth.register'))
 
     return render_template('register.html', active_tab='register')
 

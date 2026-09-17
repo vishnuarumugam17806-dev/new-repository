@@ -73,13 +73,39 @@ with app.app_context():
             from services.sqlserver_service import SqlServerService
             SqlServerService.init_system_db()
         db.create_all()
-        if 'mssql' in db_uri:
-            try:
-                from sqlalchemy import text
-                db.session.execute(text("IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('shared_databases') AND name = 'database_type') ALTER TABLE shared_databases ADD database_type NVARCHAR(50) DEFAULT 'sqlserver';"))
-                db.session.commit()
-            except Exception:
-                db.session.rollback()
+
+        # Dynamic safe schema migration for existing SQLite / Postgres / MySQL databases
+        from sqlalchemy import text, inspect
+        inspector = inspect(db.engine)
+        table_names = inspector.get_table_names()
+
+        if 'users' in table_names:
+            user_cols = [c['name'] for c in inspector.get_columns('users')]
+            if 'full_name' not in user_cols:
+                try:
+                    db.session.execute(text("ALTER TABLE users ADD COLUMN full_name VARCHAR(120);"))
+                    db.session.commit()
+                except Exception:
+                    db.session.rollback()
+                    try:
+                        db.session.execute(text("ALTER TABLE users ADD full_name VARCHAR(120);"))
+                        db.session.commit()
+                    except Exception:
+                        db.session.rollback()
+
+        if 'shared_databases' in table_names:
+            sd_cols = [c['name'] for c in inspector.get_columns('shared_databases')]
+            if 'database_type' not in sd_cols:
+                try:
+                    db.session.execute(text("ALTER TABLE shared_databases ADD COLUMN database_type VARCHAR(50) DEFAULT 'sqlserver';"))
+                    db.session.commit()
+                except Exception:
+                    db.session.rollback()
+                    try:
+                        db.session.execute(text("ALTER TABLE shared_databases ADD database_type VARCHAR(50) DEFAULT 'sqlserver';"))
+                        db.session.commit()
+                    except Exception:
+                        db.session.rollback()
     except Exception as boot_err:
         app.logger.warning(f"Database bootstrap notice: {boot_err}")
 
