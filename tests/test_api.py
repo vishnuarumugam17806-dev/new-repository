@@ -1,5 +1,5 @@
 """
-SMART DB — API and Integration Tests
+DB VITHRA — API and Integration Tests
 Tests Flask routing, auth endpoints and session validation.
 """
 from models import User
@@ -7,7 +7,7 @@ from models import User
 def test_landing_page(client):
     response = client.get("/")
     assert response.status_code == 200
-    assert b"SMART" in response.data
+    assert b"DB VITHRA" in response.data
 
 
 def test_auth_routes_load(client):

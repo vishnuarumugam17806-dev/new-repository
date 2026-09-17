@@ -1,1 +1,1 @@
-"""AI Engine package for SMART DB."""
+"""AI Engine package for DB VITHRA."""

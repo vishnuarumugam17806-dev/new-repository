@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% block title %}Universal Data Explorer & Platform Manager — SMART DB{% endblock %}
+{% block title %}Universal Data Explorer & Platform Manager — DB VITHRA{% endblock %}
 
 {% block content %}
 <div class="row g-3">
@@ -373,7 +373,7 @@ function changePage(delta) {
 }
 
 function openCreateUnitModal() {
-    document.getElementById('unitDbName').value = currentDbName || 'SmartDB_Project';
+    document.getElementById('unitDbName').value = currentDbName || 'DBVithra_Project';
     document.getElementById('unitName').value = '';
     document.getElementById('unitColumns').value = 'id INT PRIMARY KEY\nname VARCHAR(100)\nage INT';
     new bootstrap.Modal(document.getElementById('createUnitModal')).show();

@@ -1,5 +1,5 @@
 """
-SMART DB — Excel Service Module
+DB VITHRA — Excel Service Module
 Handles Excel workbook lifecycle, worksheets, row/column/cell CRUD, openpyxl formatting, formula detection, duplicate & missing value processing, and CSV conversions.
 """
 import os
@@ -16,7 +16,7 @@ from services.base_adapter import BaseDatabaseAdapter
 
 logger = logging.getLogger(__name__)
 
-# Base directory for Excel workbooks created/managed by SMART DB
+# Base directory for Excel workbooks created/managed by DB VITHRA
 EXCEL_STORAGE_DIR = os.path.join(os.getcwd(), 'static', 'generated_databases', 'excel_workbooks')
 os.makedirs(EXCEL_STORAGE_DIR, exist_ok=True)
 

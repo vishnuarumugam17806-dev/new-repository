@@ -1,12 +1,12 @@
 databases:
-  - name: smartdb-postgres
-    databaseName: smartdb
-    user: smartdb_user
+  - name: db-vithra-postgres
+    databaseName: db_vithra
+    user: db_vithra_user
     plan: free
 
 services:
   - type: web
-    name: smart-db
+    name: db-vithra
     runtime: python
     plan: free
     buildCommand: pip install -r requirements.txt
@@ -20,7 +20,7 @@ services:
         value: production
       - key: DATABASE_URL
         fromDatabase:
-          name: smartdb-postgres
+          name: db-vithra-postgres
           property: connectionString
       - key: OPENAI_API_KEY
         sync: false

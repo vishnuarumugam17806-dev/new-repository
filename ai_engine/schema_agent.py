@@ -1,5 +1,5 @@
 """
-SMART DB — AI Schema Agent
+DB VITHRA — AI Schema Agent
 Multi-step GPT-4o pipeline for intelligent database schema generation.
 Falls back to the rule-based engine when no API key is configured.
 """

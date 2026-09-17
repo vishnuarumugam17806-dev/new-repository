@@ -7,7 +7,7 @@ services:
       - "5000:5000"
     environment:
       - FLASK_ENV=production
-      - DATABASE_URL=postgresql+psycopg2://postgres:postgres_password@db:5432/smartdb
+      - DATABASE_URL=postgresql+psycopg2://postgres:postgres_password@db:5432/db_vithra
       - REDIS_URL=redis://redis:6379/0
       - SECRET_KEY=prod-secret-key-change-me-123456789
     env_file:
@@ -24,7 +24,7 @@ services:
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres_password
-      POSTGRES_DB: smartdb
+      POSTGRES_DB: db_vithra
     ports:
       - "5432:5432"
     volumes:

@@ -1,5 +1,5 @@
 """
-SMART DB — Pytest Conftest
+DB VITHRA — Pytest Conftest
 Configures Flask app testing instance with an in-memory SQLite database.
 SQL Server is bypassed using an in-memory SQLite URI for unit tests.
 """

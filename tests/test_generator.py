@@ -1,5 +1,5 @@
 """
-SMART DB — Generator Tests
+DB VITHRA — Generator Tests
 Tests SQL dialect translation, spec validation, and basic parsing.
 """
 from utils import translate_sql, validate_table_spec, generate_sql_from_spec

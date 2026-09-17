@@ -1,5 +1,5 @@
 """
-SMART DB — Prompt Engineering Templates
+DB VITHRA — Prompt Engineering Templates
 All GPT-4o prompts for the multi-agent AI pipeline.
 """
 

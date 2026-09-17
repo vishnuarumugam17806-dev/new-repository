@@ -1,14 +1,13 @@
-# SMART DB — AI Database Designer & Schema Generator Documentation
+# DB VITHRA — AI Database Designer & Schema Generator Documentation
 
-Welcome to the documentation folder of **SMART DB** (AI-Powered Automatic Database Designer and Schema Generation Platform).
+Welcome to the documentation folder of **DB VITHRA** (AI-Powered Universal Database and Data Management Platform).
 
 ## Directory Structure
 
 This folder contains high-quality developer and user documentation:
 
-1. **[User Manual](file:///c:/Users/vishn/OneDrive/SMART%20DB/docs/user_manual.md)** — Guide on how to navigate the platform, generate schemas via AI, run query assistant queries, deploy databases to different DBMS instances, and use industry templates.
-2. **[API Documentation](file:///c:/Users/vishn/OneDrive/SMART%20DB/docs/api_documentation.md)** — Fully-fledged API references and documentation detailing endpoints, request payloads, and response structures.
-3. **[Architecture & Design Guide](file:///c:/Users/vishn/OneDrive/SMART%20DB/docs/architecture.md)** — Core engineering design, layout specifications, and AI multi-agent orchestrator behavior.
+1. **[User Manual](user_manual.md)** — Guide on how to navigate the platform, generate schemas via AI, run query assistant queries, deploy databases to different DBMS instances, and explore catalog schemas.
+2. **[API Documentation](api_documentation.md)** — Fully-fledged API references and documentation detailing endpoints, request payloads, and response structures.
 
 ## Technology Stack
 

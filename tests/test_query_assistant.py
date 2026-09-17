@@ -1,5 +1,5 @@
 """
-SMART DB — AI Query Assistant Tests
+DB VITHRA — AI Query Assistant Tests
 Tests 20+ distinct natural language questions to verify unique, schema-aware SQL Server query generation.
 """
 import pytest

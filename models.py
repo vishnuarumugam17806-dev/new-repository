@@ -1,5 +1,5 @@
 """
-SMART DB — SQLAlchemy Models
+DB VITHRA — SQLAlchemy Models
 All database models for the full multi-database platform.
 """
 from datetime import datetime, timezone

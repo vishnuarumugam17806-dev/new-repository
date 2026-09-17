@@ -1,6 +1,6 @@
-# SMART DB — User Manual
+# DB VITHRA — User Manual
 
-Welcome to the **SMART DB** User Manual! This guide helps you navigate and operate the platform to design databases efficiently.
+Welcome to the **DB VITHRA** User Manual! This guide helps you navigate and operate the platform to design and manage databases efficiently.
 
 ---
 

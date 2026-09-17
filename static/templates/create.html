@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% block title %}Generate Database &amp; Platform Architect — SMART DB{% endblock %}
+{% block title %}Generate Database &amp; Platform Architect — DB VITHRA{% endblock %}
 
 {% block content %}
 <div class="row justify-content-center">
@@ -151,7 +151,7 @@
         <div class="card-header border-bottom py-3 px-4 d-flex align-items-center justify-content-between bg-light">
             <div class="d-flex align-items-center gap-2">
                 <div class="badge bg-purple text-white px-2 py-1 rounded">STEP 3</div>
-                <span class="fw-bold text-dark"><i class="fa-solid fa-robot text-icon-purple me-2"></i>SMART DB AI Architect Assistant</span>
+                <span class="fw-bold text-dark"><i class="fa-solid fa-robot text-icon-purple me-2"></i>DB VITHRA AI Architect Assistant</span>
             </div>
             <span id="activeSpecTag" class="badge bg-purple text-white px-3 py-1">SQL SERVER</span>
         </div>
@@ -180,7 +180,7 @@
 {% block extra_scripts %}
 <script>
 let selectedSpec = 'sqlserver';
-let activeDatabaseName = 'SmartDB_Project';
+let activeDatabaseName = 'DBVithra_Project';
 let activeParsedFile = null;
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -367,7 +367,7 @@ function appendAiMessage(text, buttons, actions, showFilePicker) {
         filePickerHtml = `
             <div class="card p-3 border border-purple bg-white rounded-3 mt-3 shadow-sm text-start" style="display: block !important;">
                 <h6 class="fw-bold text-dark mb-2"><i class="fa-solid fa-file-import text-purple me-2"></i>Select Data File for Database "${activeDatabaseName}"</h6>
-                <p class="text-secondary small mb-3">Upload your <strong>.CSV</strong>, <strong>.XLSX</strong>, or <strong>.JSON</strong> file. SMART DB will display a data preview table and allow you to give an AI prompt to extract your database.</p>
+                <p class="text-secondary small mb-3">Upload your <strong>.CSV</strong>, <strong>.XLSX</strong>, or <strong>.JSON</strong> file. DB VITHRA will display a data preview table and allow you to give an AI prompt to extract your database.</p>
                 
                 <div class="mb-3">
                     <label class="form-label text-dark small fw-bold">Choose File (.csv, .xlsx, .json)</label>
@@ -526,7 +526,7 @@ async function submitAiFileBuild(importFull) {
     const payload = {
         file_path: activeParsedFile.file_path,
         db_type: selectedSpec,
-        db_name: activeDatabaseName || 'SmartDB_Project',
+        db_name: activeDatabaseName || 'DBVithra_Project',
         table_name: tableName,
         prompt: promptText
     };

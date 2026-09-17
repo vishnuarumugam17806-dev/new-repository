@@ -1,5 +1,5 @@
 """
-SMART DB — Comprehensive Multi-Platform AI Query Assistant & Training Verification Tests
+DB VITHRA — Comprehensive Multi-Platform AI Query Assistant & Training Verification Tests
 Tests SQL Server, MySQL, Oracle, MongoDB, and Excel generation across DML, DDL, queries, and conceptual doubts.
 """
 import pytest

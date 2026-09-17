@@ -1,5 +1,5 @@
 """
-SMART DB — Universal Data Explorer, Direct Grid Editing, NLP Modification & Import Blueprint
+DB VITHRA — Universal Data Explorer, Direct Grid Editing, NLP Modification & Import Blueprint
 Handles multi-database exploration, direct row/cell/document editing, natural language operations, and file import pipeline across SQL Server, MySQL, Oracle, MongoDB, and Excel.
 """
 import os
@@ -44,7 +44,7 @@ def explorer(db_id=None):
             db_name = recent.project_name
             db_type = recent.database_type or 'sqlserver'
         else:
-            db_name = 'smartdb_system'
+            db_name = 'db_vithra_system'
 
     return render_template('crud.html',
                            db_type=db_type,

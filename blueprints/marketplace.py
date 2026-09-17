@@ -1,5 +1,5 @@
 """
-SMART DB — Marketplace Blueprint
+DB VITHRA — DB Store & Schema Catalog Blueprint
 Handles schema marketplace, comments, likes, and ratings.
 """
 import re

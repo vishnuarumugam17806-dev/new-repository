@@ -1,5 +1,5 @@
 """
-SMART DB — API and Multi-Database Query Assistant Blueprint
+DB VITHRA — API and Multi-Database Query Assistant Blueprint
 Handles natural language query assistant endpoints for SQL Server, MySQL, Oracle, MongoDB, and Excel.
 """
 from flask import Blueprint, render_template, request, jsonify
@@ -43,7 +43,7 @@ def nl_to_sql():
         if not query:
             return jsonify({'error': 'Query is required'}), 400
 
-        target_db_name = raw_db_name or 'SmartDB_Project'
+        target_db_name = raw_db_name or 'DBVithra_Project'
         schema_context = ""
 
         if schema_id:

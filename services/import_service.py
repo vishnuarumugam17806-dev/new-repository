@@ -1,5 +1,5 @@
 """
-SMART DB — High-Performance File Import & Data Analysis Service
+DB VITHRA — High-Performance File Import & Data Analysis Service
 Optimized for instant file reading, dataset preview, data type inferencing, and high-speed batch database imports.
 """
 import os

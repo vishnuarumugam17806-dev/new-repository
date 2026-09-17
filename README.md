@@ -1,17 +1,20 @@
-# SMART DB — Automated Database Design & Schema Engineering Service
+# DB VITHRA — AI-Powered Universal Database & Data Management Platform
 
 [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/vishnuarumugam17806-dev/new-repository)
 [![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/downloads/release/python-3118/)
 [![Flask](https://img.shields.io/badge/flask-3.0.3-green.svg)](https://palletsprojects.com/p/flask/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**SMART DB** is an enterprise-grade AI-powered automated database design, SQL generation, schema visualization, and data modeling web platform.
+> **Where Data Meets Intelligence.**  
+> *VITHRA — Versatile Intelligent Technology for Handling, Retrieval & Analytics*
+
+**DB VITHRA** is an AI-powered universal database and data management platform that enables users to create, connect, manage, query, visualize, modify, import, export, and analyze data across multiple database systems and data sources.
 
 ---
 
 ## 🚀 Instant 1-Click Cloud Deployment to Render
 
-You can deploy SMART DB directly to Render in one click:
+You can deploy DB VITHRA directly to Render in one click:
 
 [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/vishnuarumugam17806-dev/new-repository)
 
@@ -26,15 +29,11 @@ You can deploy SMART DB directly to Render in one click:
 1. Navigate to: [Deploy on Render](https://render.com/deploy?repo=https://github.com/vishnuarumugam17806-dev/new-repository)
 2. Connect your GitHub account if prompted.
 3. Render will read `render.yaml` automatically, configuring:
-   - **Web Service**: `smart-db`
-   - **PostgreSQL Database**: `smartdb-postgres`
+   - **Web Service**: `db-vithra`
+   - **PostgreSQL Database**: `db-vithra-postgres`
    - Environment variables, build command (`pip install -r requirements.txt`), and start command (`gunicorn app:app`).
 4. Click **Apply Blueprint**.
-5. Once deployment completes, your live public URL will be:
-   ```
-   https://smart-db.onrender.com
-   ```
-   *(Or the custom unique subdomain assigned on your Render dashboard, e.g. `https://smart-db-xxxx.onrender.com`)*.
+5. Once deployment completes, your live public URL will be accessible on your Render dashboard.
 
 ---
 
@@ -43,7 +42,7 @@ You can deploy SMART DB directly to Render in one click:
 2. Click **New +** → **Web Service**.
 3. Select **Build and deploy from a Git repository** and pick `vishnuarumugam17806-dev/new-repository`.
 4. Configure settings:
-   - **Name:** `smart-db`
+   - **Name:** `db-vithra`
    - **Region:** Any (e.g. Oregon, Frankfurt, Singapore)
    - **Branch:** `main`
    - **Runtime:** `Python 3`
@@ -61,12 +60,14 @@ You can deploy SMART DB directly to Render in one click:
 ---
 
 ## 🌟 Key Features
-- **AI Schema Architect:** Generate normalized DDL schemas (PostgreSQL, MySQL, SQLite, MS SQL, Oracle) from natural language prompts.
-- **Interactive ER Diagrams:** Real-time visual ER diagram rendering powered by Mermaid.js.
-- **CRUD Operations Hub:** Browse tables, execute queries, and manipulate schemas interactively.
-- **Natural Language Query Assistant:** Query databases using plain English with automatic SQL conversion.
-- **Schema Marketplace & Templates:** Built-in industry-standard database templates for rapid prototyping.
-- **Multi-DBMS Compatibility:** Native support for SQLite, PostgreSQL, MySQL, SQL Server, and MongoDB.
+- **AI Schema Architect & Creation Wizard:** Generate normalized DDL schemas across SQL Server, MySQL, Oracle, MongoDB, and Excel from natural language requirements.
+- **Universal Multi-DBMS Connectivity:** Native live adapters for SQL Server, MySQL, Oracle, MongoDB, and Excel datasets with connection verification.
+- **AI Query Assistant:** Dual-engine natural language to query translation with intelligent schema introspection and multi-dialect query generation.
+- **Interactive Data Explorer & CRUD Operations:** Full table hierarchy browsing, column inspection, and live CRUD management.
+- **Interactive ER Diagram Engine:** Real-time visual ER diagram rendering powered by Mermaid.js with pan/zoom controls.
+- **DB Store Schema Catalog:** Community and enterprise multi-database schema catalog.
+- **High-Performance Import & Export:** Instant dataset preview, data type inferencing, batch ingestion, and JSON/CSV/SQL export capabilities.
+- **Real-Time Analytics Dashboard:** Engine distribution, schema metrics, query logs, and activity telemetry.
 
 ---
 
@@ -98,4 +99,4 @@ App will be running locally at `http://localhost:5000`.
 ```bash
 pytest
 ```
-All 18 unit and integration tests pass successfully.
+All 21 unit and integration tests pass successfully.

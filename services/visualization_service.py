@@ -1,5 +1,5 @@
 """
-SMART DB — Data Visualization Service
+DB VITHRA — Data Visualization Service
 Analyzes table/collection/worksheet data and builds chart payloads (Bar, Line, Pie, Doughnut, Area, Scatter, Histogram, Heatmap, KPI Cards).
 """
 import logging

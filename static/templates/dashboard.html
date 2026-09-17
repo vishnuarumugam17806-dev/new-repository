@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% block title %}User Dashboard — SMART DB{% endblock %}
+{% block title %}User Dashboard — DB VITHRA{% endblock %}
 
 {% block content %}
 <!-- User Greeting Header -->
@@ -10,6 +10,10 @@
                 {{ current_user.username[0]|upper }}
             </span>
             <div>
+                <div class="d-flex align-items-center gap-2 mb-1">
+                    <span class="badge bg-primary px-2 py-1 small font-monospace fw-bold">DB VITHRA</span>
+                    <span class="text-purple small fw-semibold">Where Data Meets Intelligence.</span>
+                </div>
                 <h1 class="fw-bold mb-0 text-dark fs-3">Welcome, {{ current_user.username }}</h1>
                 <p class="text-secondary mb-0 small"><i class="fa-solid fa-envelope me-1 text-icon-indigo"></i> {{ current_user.email }} &bull; Account Active since {{ current_user.created_at.strftime('%B %Y') }}</p>
             </div>

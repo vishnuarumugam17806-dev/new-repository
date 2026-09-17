@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 
-{% block title %}Deploy Database — SMART DB{% endblock %}
+{% block title %}Deploy Database — DB VITHRA{% endblock %}
 
 {% block content %}
 <div class="row justify-content-center">
@@ -30,7 +30,7 @@
             <div class="col-md-7">
                 <div class="card shadow-sm p-4">
                     <h4 class="fw-bold text-dark mb-2"><i class="fa-solid fa-cloud-arrow-up text-icon-green me-2"></i>Execute Target Deployment</h4>
-                    <p class="text-secondary small mb-4">Select your target database engine and credentials. SMART DB will establish the link, verify the database schema, compile, and execute the DDL queries.</p>
+                    <p class="text-secondary small mb-4">Select your target database engine and credentials. DB VITHRA will establish the link, verify the database schema, compile, and execute the DDL queries.</p>
 
                     <form method="POST">
                         <div class="mb-3">
@@ -67,7 +67,7 @@
                             <div class="mb-4">
                                 <label class="form-label" for="db_name">Database Name</label>
                                 <input type="text" name="db_name" id="db_name" class="form-control" value="{{ db_name or '' }}" placeholder="e.g. HospitalDB">
-                                <div class="form-text">SMART DB will attempt to create the database if it does not already exist on the server.</div>
+                                <div class="form-text">DB VITHRA will attempt to create the database if it does not already exist on the server.</div>
                             </div>
                         </div>
 

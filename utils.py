@@ -1,5 +1,5 @@
 """
-SMART DB — Utility and Helper Functions
+DB VITHRA — Utility and Helper Functions
 Shared helper methods for SQL translation, analytics tracking, and input validation.
 """
 import re

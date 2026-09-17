@@ -1,5 +1,5 @@
 """
-SMART DB — Base Database Adapter Interface
+DB VITHRA — Base Database Adapter Interface
 Provides standard abstract interface for SQL Server, MySQL, Oracle, MongoDB, and Excel adapters.
 """
 from abc import ABC, abstractmethod

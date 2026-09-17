@@ -1,6 +1,6 @@
 """
-SMART DB — MongoDB Service Module
-Handles real MongoDB lifecycle: database/collection creation, BSON/JSON CRUD, nested objects, ObjectIds, indexing, and aggregation pipelines.
+DB VITHRA — MongoDB Service Module
+Implements dynamic NoSQL database creation, collections discovery, CRUD operations, BSON query execution, and CSV/JSON data ingestion.
 """
 import os
 import re
@@ -46,13 +46,13 @@ class MongoDBAdapter(BaseDatabaseAdapter):
             db = client[db_name]
             # In MongoDB, a database is created when data/collections are added. We create a default 'system_info' collection
             if 'system_info' not in db.list_collection_names():
-                db['system_info'].insert_one({'created_by': 'SMART DB', 'version': '2.0', 'status': 'active'})
+                db['system_info'].insert_one({'created_by': 'DB VITHRA', 'version': '2.0', 'status': 'active'})
             client.close()
             return True, f"MongoDB Database `{db_name}` successfully initialized."
         except Exception as e:
             logger.info(f"Using local memory store fallback for MongoDB database `{db_name}`: {e}")
             if db_name not in _mock_mongo_store:
-                _mock_mongo_store[db_name] = {'system_info': [{'created_by': 'SMART DB', 'version': '2.0'}]}
+                _mock_mongo_store[db_name] = {'system_info': [{'created_by': 'DB VITHRA', 'version': '2.0'}]}
             return True, f"MongoDB Database `{db_name}` initialized (Local Workspace Mode)."
 
     def list_databases(self, config: Dict[str, Any]) -> List[str]:
@@ -63,7 +63,7 @@ class MongoDBAdapter(BaseDatabaseAdapter):
             client.close()
             return [d for d in dbs if d not in ['admin', 'config', 'local']]
         except Exception:
-            return list(_mock_mongo_store.keys()) or ['smartdb_mongo']
+            return list(_mock_mongo_store.keys()) or ['db_vithra_mongo']
 
     def list_tables(self, db_name: str, config: Dict[str, Any]) -> List[str]:
         """In MongoDB, 'tables' correspond to Collections."""

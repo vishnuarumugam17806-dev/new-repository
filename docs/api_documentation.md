@@ -1,6 +1,6 @@
-# SMART DB — API Documentation
+# DB VITHRA — API Documentation
 
-This document outlines the REST API endpoints provided by the **SMART DB** platform.
+This document outlines the REST API endpoints provided by the **DB VITHRA** platform.
 
 ---
 
@@ -40,8 +40,7 @@ This document outlines the REST API endpoints provided by the **SMART DB** platf
   * `requirements` (string, optional): Requirement descriptions for AI generation.
   * `columns_spec` (string, optional): Raw column specification if creating directly.
   * `table_name` (string, optional): Custom table name for column specs.
-  * `db_type` (string, default: `sqlite`): target DBMS (`sqlite`, `mysql`, `postgresql`, `mssql`).
-  * `use_template` (integer, optional): Template ID to use instead of custom prompt.
+  * `db_type` (string, default: `sqlite`): target DBMS (`sqlite`, `mysql`, `postgresql`, `mssql`, `oracle`, `mongodb`, `excel`).
 * **Response:** Redirects to `/database/<db_id>` on successful generation.
 
 ---

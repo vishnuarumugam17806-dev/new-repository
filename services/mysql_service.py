@@ -1,5 +1,5 @@
 """
-SMART DB — MySQL Service Module
+DB VITHRA — MySQL Service Module
 Handles MySQL connection lifecycle, schema creation, introspection, dynamic query execution, and CRUD operations.
 """
 import os

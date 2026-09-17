@@ -1,5 +1,5 @@
 """
-SMART DB — System Analytics & Platform Management Dashboard Blueprint
+DB VITHRA — System Analytics & Platform Management Dashboard Blueprint
 Computes multi-database statistics across SQL Server, MySQL, Oracle, MongoDB, and Excel.
 """
 from datetime import datetime, timedelta

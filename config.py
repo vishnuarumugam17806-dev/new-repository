@@ -1,5 +1,5 @@
 """
-SMART DB — Configuration Management
+DB VITHRA — Configuration Management
 Loads settings from environment variables with sensible defaults.
 """
 import os
@@ -44,15 +44,17 @@ def get_database_uri() -> str:
             available = [d for d in pyodbc.drivers() if 'SQL Server' in d]
             if available or os.environ.get('MSSQL_SERVER'):
                 server   = os.environ.get('MSSQL_SERVER', r'localhost\SQLEXPRESS04')
-                database = os.environ.get('MSSQL_DATABASE', 'smartdb_system')
+                database = os.environ.get('MSSQL_DATABASE', 'db_vithra_system')
                 driver   = next((d for d in ['ODBC Driver 18 for SQL Server', 'ODBC Driver 17 for SQL Server', 'SQL Server'] if d in available), 'ODBC Driver 17 for SQL Server')
                 conn_str = f"DRIVER={{{driver}}};SERVER={server};DATABASE={database};Trusted_Connection=yes;Encrypt=no;TrustServerCertificate=yes;"
                 return f"mssql+pyodbc:///?odbc_connect={quote_plus(conn_str)}"
         except Exception:
             pass
 
-    # Cloud / Standalone fallback: local SQLite database
-    sqlite_path = os.path.join(BASE_DIR, 'smartdb.db')
+    # Cloud / Standalone fallback: local SQLite database (preserves smartdb.db if exists, otherwise db_vithra.db)
+    existing_smartdb = os.path.join(BASE_DIR, 'smartdb.db')
+    vithra_path = os.path.join(BASE_DIR, 'db_vithra.db')
+    sqlite_path = existing_smartdb if os.path.exists(existing_smartdb) else vithra_path
     return f"sqlite:///{sqlite_path}"
 
 

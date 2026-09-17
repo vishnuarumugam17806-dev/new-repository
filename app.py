@@ -1,5 +1,5 @@
 """
-SMART DB — Automated Database Design & Schema Engineering Service
+DB VITHRA — AI-Powered Universal Database & Data Management Platform
 Main Flask application entry point.
 """
 import os

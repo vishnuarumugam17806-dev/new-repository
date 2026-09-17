@@ -1,5 +1,5 @@
 """
-SMART DB — Universal Connection & Database Adapter Manager
+DB VITHRA — Universal Connection & Database Adapter Manager
 Dispatches database lifecycle, querying, connection testing, and CRUD operations to SQLServerAdapter, MySQLAdapter, OracleAdapter, MongoDBAdapter, or ExcelAdapter.
 """
 import logging

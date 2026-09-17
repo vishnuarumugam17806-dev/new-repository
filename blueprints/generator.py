@@ -1,5 +1,5 @@
 """
-SMART DB — Schema Generator Blueprint
+DB VITHRA — Schema Generator Blueprint
 Handles dynamic database creation workflow, AI schema generation, multi-database connection testing, execution, file-based database generation, AI file data transformation, and downloads.
 """
 import os
@@ -74,7 +74,7 @@ def chat_state():
         return jsonify({
             'state': state,
             'initial_message': (
-                "Welcome to SMART DB! Let's build your data platform.\n\n"
+                "Welcome to DB VITHRA! Let's build your data platform.\n\n"
                 "First, please select your Database Specification target below."
             ),
             'specs': [
@@ -172,10 +172,10 @@ def chat_message():
     # STEP 3 – RECEIVE DATABASE NAME & OFFER CREATION MODES (FILE UPLOAD VS AI/SCRATCH)
     elif current_step == 'ask_dbname':
         target_type = state.get('database_type', 'sqlserver')
-        raw_name = user_input or data.get('database_name', 'SmartDB_Project')
+        raw_name = user_input or data.get('database_name', 'DBVithra_Project')
         sanitized = re.sub(r'[^A-Za-z0-9_\-]', '', raw_name.replace(' ', '_'))
         if not sanitized:
-            sanitized = 'SmartDB_Data'
+            sanitized = 'DBVithra_Data'
 
         state['database_name'] = sanitized
         state['step'] = 'choose_creation_mode'
@@ -201,14 +201,14 @@ def chat_message():
     # STEP 4 – CHOOSE CREATION MODE (FILE UPLOAD VS AI CHAT PROMPT)
     elif current_step == 'choose_creation_mode':
         target_type = state.get('database_type', 'sqlserver')
-        db_name = state.get('database_name', 'SmartDB_Project')
+        db_name = state.get('database_name', 'DBVithra_Project')
         chosen_mode = action or user_input.lower()
 
         if chosen_mode == 'upload_file_mode' or 'upload' in user_input.lower():
             state['step'] = 'upload_file_mode'
             session['database_creation_state'] = state
             return jsonify({
-                'ai_message': f"📁 **File Upload Mode Selected for Database '{db_name}'**.\n\nPlease select your `.csv`, `.xlsx`, or `.json` data file below. SMART DB will generate a data preview table and let you enter an AI prompt to build your database.",
+                'ai_message': f"📁 **File Upload Mode Selected for Database '{db_name}'**.\n\nPlease select your `.csv`, `.xlsx`, or `.json` data file below. DB VITHRA will generate a data preview table and let you enter an AI prompt to build your database.",
                 'step': 'upload_file_mode',
                 'database_type': target_type,
                 'database_name': db_name,
@@ -293,7 +293,7 @@ def chat_message():
         tables_list = state.get('tables', [])
         idx = state.get('current_table_index', 0)
         current_table = tables_list[idx] if idx < len(tables_list) else "Table"
-        db_name = state.get('database_name', 'SmartDB_Project')
+        db_name = state.get('database_name', 'DBVithra_Project')
         conn_config = state.get('connection_config', {})
 
         # Parse column specifications
@@ -388,7 +388,7 @@ def build_from_file_ai():
         data = request.get_json() or {}
         file_path = data.get('file_path', '').strip()
         db_type = data.get('db_type', 'sqlserver').lower()
-        db_name = data.get('db_name', 'SmartDB_Project').strip()
+        db_name = data.get('db_name', 'DBVithra_Project').strip()
         table_name = data.get('table_name', '').strip()
         ai_prompt = data.get('prompt', '').strip()
 
@@ -408,7 +408,7 @@ def build_from_file_ai():
             table_name = os.path.splitext(filename)[0]
 
         table_name = re.sub(r'[^A-Za-z0-9_\-]', '', table_name.replace(' ', '_')) or 'ImportedData'
-        db_name = re.sub(r'[^A-Za-z0-9_\-]', '', db_name.replace(' ', '_')) or 'SmartDB_Project'
+        db_name = re.sub(r'[^A-Za-z0-9_\-]', '', db_name.replace(' ', '_')) or 'DBVithra_Project'
 
         # Auto-detect column specifications
         cols_spec = []

@@ -1,1 +1,1 @@
-# SMART DB Tests
+# DB VITHRA Tests

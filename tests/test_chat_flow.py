@@ -1,5 +1,5 @@
 """
-SMART DB — Database Creation Chat Flow Tests
+DB VITHRA — Database Creation Chat Flow Tests
 Tests multi-database session state machine step-by-step.
 """
 from unittest.mock import patch

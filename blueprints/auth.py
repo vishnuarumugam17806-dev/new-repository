@@ -1,5 +1,5 @@
 """
-SMART DB — Authentication Blueprint
+DB VITHRA — Authentication Blueprint
 Handles user registration, login, logout, and profile management.
 """
 import re
@@ -304,7 +304,7 @@ def export_db_sql(db_name):
         safe_name = re.sub(r'[^a-zA-Z0-9_]', '_', db_name.lower())
         
         # Build script header
-        ddl_script = f"-- SMART DB Auto-Generated Script\n"
+        ddl_script = f"-- DB VITHRA Auto-Generated Script\n"
         ddl_script += f"-- Target DBMS: Microsoft SQL Server\n"
         ddl_script += f"-- Database: [{db_name}]\n"
         ddl_script += f"-- Export Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"

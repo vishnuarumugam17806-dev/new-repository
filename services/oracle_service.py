@@ -1,5 +1,5 @@
 """
-SMART DB — Oracle Service Module
+DB VITHRA — Oracle Service Module
 Handles Oracle connection lifecycle, schema management, dictionary introspection, DDL creation, and PL/SQL queries.
 """
 import os

@@ -1,5 +1,6 @@
 """
-SMART DB — SQL Server Service Module
+DB VITHRA — SQL Server Service Module
+Full direct integration with Microsoft SQL Server (SQLEXPRESS / LocalDB).
 Handles SQL Server connection lifecycle, system database bootstrapping, validation,
 introspection, dynamic query execution, transactions, and cleanup.
 """
@@ -21,7 +22,7 @@ class SqlServerService:
 
     @staticmethod
     def get_system_db_name() -> str:
-        return os.environ.get('MSSQL_DATABASE', 'smartdb_system')
+        return os.environ.get('MSSQL_DATABASE', 'db_vithra_system')
 
     @classmethod
     def get_driver(cls) -> str:
@@ -117,7 +118,7 @@ class SqlServerService:
             )
         
         # Blacklist system reserved databases
-        blacklisted = {'master', 'tempdb', 'model', 'msdb', 'smartdb_system', 'admin', 'dbo', 'sys'}
+        blacklisted = {'master', 'tempdb', 'model', 'msdb', 'smartdb_system', 'db_vithra_system', 'admin', 'dbo', 'sys'}
         if name.lower() in blacklisted or name.lower() == SqlServerService.get_system_db_name().lower():
             return False, f"'{name}' is a reserved database name and cannot be used."
             
