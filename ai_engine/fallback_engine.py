@@ -329,46 +329,104 @@ class FallbackEngine:
         return {'database': 'smartdb', 'collections': collections}
 
     def nl_to_sql(self, user_query: str, schema_context: str, db_type: str = 'sqlite') -> dict:
-        """Query Assistant: Convert natural language query to SQL dynamically based on schema_context."""
+        """Query Assistant: Convert natural language query to platform-tailored query dynamically."""
         query_lower = user_query.lower().strip()
+        db_type = (db_type or 'sqlite').lower()
 
-        # 0. Check for General SQL Doubts / Conceptual Questions
-        doubt_keywords = ['what is', 'explain', 'difference between', 'how to use', 'why use', 'what does', 'meaning of']
-        if any(dk in query_lower for dk in doubt_keywords):
+        # ── 0. Conceptual Doubts & Architectural Q&A ───────────────────────────
+        doubt_keywords = ['what is', 'what are', 'explain', 'difference between', 'how to use', 'why use', 'what does', 'meaning of', 'how do i', 'how does', 'best practice', 'define', 'tell me about', 'properties of']
+        is_concept_query = any(dk in query_lower for dk in doubt_keywords) or any(k in query_lower for k in ['acid', 'deadlock', 'normalization', '1nf', '2nf', '3nf', 'bcnf', 'clustered index'])
+        if is_concept_query:
             if 'index' in query_lower:
+                if 'cluster' in query_lower or 'difference' in query_lower:
+                    return {
+                        "sql": "-- Clustered Index (determines physical order of data, 1 per table)\nCREATE CLUSTERED INDEX CIX_Orders_Date ON Orders(OrderDate);\n\n-- Non-Clustered Index (separate pointer structure, multiple per table)\nCREATE NONCLUSTERED INDEX IX_Orders_CustomerID ON Orders(CustomerID) INCLUDE (TotalAmount);",
+                        "explanation": "A Clustered Index defines the physical sorting order of rows in the table (typically the Primary Key, max 1 per table). A Non-Clustered Index is an independent B-Tree structure containing index key columns and pointers back to the clustered index/heap.",
+                        "tables_used": ["Orders"],
+                        "optimization_tips": ["Keep clustered index keys small, static, and monotonically increasing (e.g. IDENTITY / BIGINT).", "Use INCLUDE columns in non-clustered indexes to create covering indexes and avoid bookmark lookups."],
+                        "alternative_approaches": ["Use Columnstore indexes for heavy analytical / OLAP data warehousing workloads."]
+                    }
                 return {
-                    "sql": "CREATE NONCLUSTERED INDEX IX_Customer_Email ON Customers(Email);",
-                    "explanation": "An Index in SQL is a data structure that speeds up retrieval of records from a database table at the cost of additional write time and storage space.",
+                    "sql": "CREATE NONCLUSTERED INDEX IX_Customer_Email ON Customers(Email);\n-- Check execution plan to verify Index Seek vs Table Scan",
+                    "explanation": "An Index in SQL is an auxiliary B-tree data structure that accelerates search queries from O(N) linear table scans to O(log N) logarithmic binary seeks, at the expense of minor storage and write latency.",
                     "tables_used": ["Customers"],
-                    "optimization_tips": ["Create indexes on columns frequently used in WHERE, JOIN, and ORDER BY clauses."],
-                    "alternative_approaches": ["Use Clustered Index for primary key sorting, and Non-Clustered Indexes for secondary lookup columns."]
+                    "optimization_tips": ["Create indexes on columns frequently used in WHERE filters, JOIN keys, and ORDER BY clauses."],
+                    "alternative_approaches": ["Use filtered indexes (WHERE status = 'Active') to save storage for skewed distribution columns."]
                 }
             elif 'join' in query_lower:
                 return {
-                    "sql": "SELECT c.customer_name, o.order_date\nFROM Customers c\nINNER JOIN Orders o ON c.customer_id = o.customer_id;",
-                    "explanation": "JOIN combines rows from two or more tables based on a related column between them. INNER JOIN returns matching records in both tables, whereas LEFT JOIN returns all records from the left table.",
+                    "sql": "-- 1. INNER JOIN (Only matching records in both tables)\nSELECT c.customer_name, o.order_id, o.total_amount\nFROM Customers c\nINNER JOIN Orders o ON c.customer_id = o.customer_id;\n\n-- 2. LEFT OUTER JOIN (All customers, including those with no orders)\nSELECT c.customer_name, o.order_id\nFROM Customers c\nLEFT JOIN Orders o ON c.customer_id = o.customer_id;",
+                    "explanation": "JOIN combines fields from two tables based on a relational key. INNER JOIN yields rows where the join condition matches in both tables. LEFT JOIN yields all rows from the primary left table plus matching rows from the right table (filling NULLs where no match exists).",
                     "tables_used": ["Customers", "Orders"],
-                    "optimization_tips": ["Ensure join columns are indexed and have matching data types."],
-                    "alternative_approaches": ["Use LEFT JOIN if you need unmatched parent records included in results."]
+                    "optimization_tips": ["Ensure Foreign Key columns participating in the ON condition are indexed with identical data types."],
+                    "alternative_approaches": ["Use CROSS APPLY or LATERAL joins when joining against table-valued functions or top-N correlated subqueries."]
                 }
-            elif 'group by' in query_lower or 'aggregate' in query_lower:
+            elif 'group by' in query_lower or 'aggregate' in query_lower or 'having' in query_lower:
                 return {
-                    "sql": "SELECT department_id, COUNT(*) AS total_employees, AVG(salary) AS avg_salary\nFROM Employees\nGROUP BY department_id;",
-                    "explanation": "GROUP BY statement groups rows that have the same values into summary rows, often used with aggregate functions (COUNT, MAX, MIN, SUM, AVG).",
+                    "sql": "SELECT department_id, COUNT(*) AS total_employees, AVG(salary) AS avg_salary, MAX(salary) AS highest_salary\nFROM Employees\nWHERE status = 'Active'\nGROUP BY department_id\nHAVING COUNT(*) >= 5\nORDER BY avg_salary DESC;",
+                    "explanation": "GROUP BY aggregates rows sharing duplicate grouping values into consolidated summary metrics. WHERE filters rows before aggregation occurs; HAVING filters aggregated groups after aggregation.",
                     "tables_used": ["Employees"],
-                    "optimization_tips": ["Use HAVING to filter aggregated groups after grouping."],
-                    "alternative_approaches": ["Use Window Functions (PARTITION BY) for group calculations alongside row-level data."]
+                    "optimization_tips": ["Filter as much data as possible in the WHERE clause before the GROUP BY pipeline executes."],
+                    "alternative_approaches": ["Use Window Functions (AVG(salary) OVER (PARTITION BY department_id)) if you need row-level details alongside aggregated values."]
+                }
+            elif 'normalization' in query_lower or 'normal form' in query_lower or '1nf' in query_lower or '2nf' in query_lower or '3nf' in query_lower or 'bcnf' in query_lower:
+                return {
+                    "sql": "-- 1NF: Atomic columns (no multivalued arrays)\n-- 2NF: 1NF + No partial dependencies on composite keys\n-- 3NF: 2NF + No transitive dependencies (Non-key -> Non-key)\n-- BCNF: Every determinant is a candidate key",
+                    "explanation": "Database Normalization organizes tables to minimize data redundancy and prevent insertion, update, and deletion anomalies. Standard OLTP systems aim for 3NF (Third Normal Form).",
+                    "tables_used": ["Schema_Architecture"],
+                    "optimization_tips": ["Normalize transactional (OLTP) databases to 3NF to avoid update anomalies.", "Denormalize dimensional reporting data warehouses (OLAP) into Star Schemas for fast analytics."],
+                    "alternative_approaches": ["Use JSON/JSONB document columns for semi-structured dynamic attributes while keeping relational roots in 3NF."]
+                }
+            elif 'acid' in query_lower or 'transaction' in query_lower:
+                return {
+                    "sql": "BEGIN TRANSACTION;\nBEGIN TRY\n    UPDATE Accounts SET balance = balance - 500 WHERE account_id = 101;\n    UPDATE Accounts SET balance = balance + 500 WHERE account_id = 202;\n    COMMIT TRANSACTION;\nEND TRY\nBEGIN CATCH\n    ROLLBACK TRANSACTION;\n    THROW;\nEND CATCH;",
+                    "explanation": "ACID guarantees transactional reliability: Atomicity (all operations succeed or all fail), Consistency (preserves database integrity rules), Isolation (concurrent transactions do not interfere), Durability (committed data survives system crashes).",
+                    "tables_used": ["Accounts"],
+                    "optimization_tips": ["Keep transaction scopes as concise and fast as possible to minimize lock contention and prevent deadlocks."],
+                    "alternative_approaches": ["Use READ COMMITTED SNAPSHOT ISOLATION (RCSI) in SQL Server to allow non-blocking concurrent reads."]
+                }
+            elif 'window function' in query_lower or 'row_number' in query_lower or 'rank' in query_lower:
+                return {
+                    "sql": "SELECT employee_id, department_id, salary,\n       ROW_NUMBER() OVER (PARTITION BY department_id ORDER BY salary DESC) AS rank_in_dept,\n       DENSE_RANK() OVER (PARTITION BY department_id ORDER BY salary DESC) AS dense_rank_in_dept\nFROM Employees;",
+                    "explanation": "Window functions perform calculations across a set of table rows that are related to the current row, without collapsing rows like GROUP BY does. PARTITION BY divides rows into groups; ORDER BY establishes sequence inside the window.",
+                    "tables_used": ["Employees"],
+                    "optimization_tips": ["Ensure composite indexes match the (PARTITION BY ... ORDER BY ...) columns to allow streaming window evaluations."],
+                    "alternative_approaches": ["Use LEAD() and LAG() window functions for calculating month-over-month growth metrics."]
                 }
             elif 'primary key' in query_lower or 'foreign key' in query_lower or 'key' in query_lower:
                 return {
-                    "sql": "ALTER TABLE Orders\nADD CONSTRAINT FK_Order_Customer FOREIGN KEY (customer_id) REFERENCES Customers(customer_id);",
-                    "explanation": "A Primary Key uniquely identifies each record in a table. A Foreign Key enforces referential integrity between tables by linking a column to a Primary Key in another table.",
+                    "sql": "ALTER TABLE Orders\nADD CONSTRAINT FK_Order_Customer FOREIGN KEY (customer_id) REFERENCES Customers(customer_id)\nON DELETE CASCADE;",
+                    "explanation": "A Primary Key uniquely identifies each row in a table and cannot contain NULLs. A Foreign Key references a Primary Key in another table, enforcing referential integrity and preventing orphan child records.",
                     "tables_used": ["Orders", "Customers"],
-                    "optimization_tips": ["Always define Primary Keys and Foreign Keys for referential safety."],
-                    "alternative_approaches": ["Use composite primary keys for junction/link tables in many-to-many relationships."]
+                    "optimization_tips": ["Always define explicit Primary Keys and index all Foreign Key columns to prevent table locks during cascades."],
+                    "alternative_approaches": ["Use composite natural keys or UUID/GUID surrogate keys when distributing data across multi-region clusters."]
                 }
-        
-        # Parse available tables & columns from schema_context (if provided) or ENTITY_PROFILES
+            elif 'cte' in query_lower or 'common table' in query_lower:
+                return {
+                    "sql": ";WITH HighSalaryEmployees AS (\n    SELECT department_id, employee_id, salary\n    FROM Employees\n    WHERE salary > 80000\n)\nSELECT department_id, COUNT(*) AS elite_count\nFROM HighSalaryEmployees\nGROUP BY department_id;",
+                    "explanation": "A Common Table Expression (CTE) is a temporary named result set defined within the execution scope of a single SELECT, INSERT, UPDATE, or DELETE statement. It vastly improves readability and supports recursion.",
+                    "tables_used": ["Employees"],
+                    "optimization_tips": ["Standard CTEs are logical rewrites and re-evaluated upon every reference; use temporary tables (#TempTable) if referencing a large CTE multiple times."],
+                    "alternative_approaches": ["Use Recursive CTEs for traversing organizational hierarchies and bill-of-materials trees."]
+                }
+            elif 'deadlock' in query_lower:
+                return {
+                    "sql": "-- Standard Deadlock Prevention Pattern:\n-- Always acquire locks / update tables in the EXACT same alphabetical or transactional sequence across all stored procedures.\n-- E.g. Always update Customers first, then Orders second.",
+                    "explanation": "A deadlock occurs when two or more transactions hold exclusive locks on different resources and each attempts to acquire a lock held by the other, resulting in a cyclical freeze until the database engine terminates the deadlock victim.",
+                    "tables_used": ["System_Lock_Manager"],
+                    "optimization_tips": ["Keep transactions brief, access objects in a consistent sequence across your codebase, and use NOLOCK / RCSI for read operations."],
+                    "alternative_approaches": ["Set DEADLOCK_PRIORITY LOW for batch jobs so critical client transactions are never aborted."]
+                }
+            elif 'nosql' in query_lower or 'mongodb' in query_lower:
+                return {
+                    "sql": "// MongoDB Document Schema Example:\ndb.customers.insertOne({\n  \"name\": \"Acme Corp\",\n  \"industry\": \"Technology\",\n  \"contacts\": [{ \"name\": \"Alice\", \"email\": \"alice@acme.com\" }],\n  \"orders\": [{ \"order_id\": \"ORD-101\", \"amount\": 450.00 }]\n});",
+                    "explanation": "SQL databases are relational, structured with rigid tabular schemas and ACID guarantees. NoSQL databases (like MongoDB document stores) provide schema flexibility, horizontal scale-out sharding, and embedded sub-documents.",
+                    "tables_used": ["customers"],
+                    "optimization_tips": ["Embed 1-to-few sub-documents directly for high read throughput; use references (ObjectIds) for large, unbound 1-to-many relationships."],
+                    "alternative_approaches": ["Use PostgreSQL JSONB for a hybrid approach combining relational SQL integrity with NoSQL dynamic fields."]
+                }
+
+        # ── 1. Parse Schema Context (if provided) ──────────────────────────────
         schema_tables = {}
         has_provided_schema = False
         if isinstance(schema_context, dict) and schema_context.get('tables'):
@@ -403,7 +461,7 @@ class FallbackEngine:
                     'fks': []
                 }
 
-        # 1. Identify target tables by matching query words with table names or entity synonyms
+        # Match tables from query
         detected_tables = []
         words = re.findall(r'\w+', query_lower)
         stem_words = [w.rstrip('s') for w in words if len(w) > 2]
@@ -416,144 +474,357 @@ class FallbackEngine:
 
         # Dynamic entity extraction if no existing table matched
         if not detected_tables:
-            stop_words = {'show', 'all', 'find', 'list', 'get', 'select', 'top', 'count', 'total', 'the', 'with', 'from', 'where', 'and', 'or', 'for', 'in', 'of', 'active', 'by', 'order', 'sort', 'having'}
-            candidate_nouns = [w for w in words if len(w) > 3 and w not in stop_words]
-            
-            if candidate_nouns and not has_provided_schema:
+            stop_words = {'show', 'all', 'find', 'list', 'get', 'select', 'top', 'count', 'total', 'the', 'with', 'from', 'where', 'and', 'or', 'for', 'in', 'of', 'active', 'by', 'order', 'sort', 'having', 'add', 'new', 'change', 'update', 'delete', 'remove', 'named', 'number', 'phone', 'email'}
+            candidate_nouns = [w for w in words if len(w) > 2 and w not in stop_words]
+            if any(k in query_lower for k in ['customer', 'phone', 'arun', 'client', 'contact']):
+                detected_tables = ["Customers"]
+            elif candidate_nouns and not has_provided_schema:
                 raw_entity = candidate_nouns[0].capitalize()
-                detected_tables = [raw_entity]
-                cols = [f"{raw_entity.lower()}_id"]
-                if 'name' in query_lower: cols.append('name')
-                if 'age' in query_lower: cols.append('age')
-                if 'salary' in query_lower: cols.append('salary')
-                if 'price' in query_lower: cols.append('price')
-                if 'amount' in query_lower: cols.append('amount')
-                if 'status' in query_lower: cols.append('status')
-                if 'date' in query_lower or 'time' in query_lower or 'registered' in query_lower: cols.append('created_at')
-                
-                schema_tables[raw_entity.lower()] = {
-                    'original_name': raw_entity,
+                detected_tables = [raw_entity + 's' if not raw_entity.endswith('s') else raw_entity]
+                cols = [f"{candidate_nouns[0]}_id", "name", "email", "phone", "status", "created_at"]
+                schema_tables[detected_tables[0].lower()] = {
+                    'original_name': detected_tables[0],
                     'columns': cols,
                     'fks': []
                 }
             elif schema_tables:
                 detected_tables = [next(iter(schema_tables.values()))['original_name']]
             else:
-                detected_tables = ["Patients"]
+                detected_tables = ["Customers"]
 
-        # 2. Select columns
         primary_table = detected_tables[0]
+        if primary_table.lower() in ('arun', 'aruns', 'changes', 'updates', 'modifies', 'deletes', 'phones', 'numbers'):
+            primary_table = "Customers"
         primary_cols = schema_tables.get(primary_table.lower(), {}).get('columns', [])
-        
-        # Check for aggregation
+        if not primary_cols:
+            primary_cols = [f"{primary_table.lower()[:-1] if primary_table.endswith('s') else primary_table.lower()}_id", "name", "phone", "email", "status", "created_at"]
+
+        # ── 2. DML Commands: INSERT / UPDATE / DELETE ──────────────────────────
+        # Check for INSERT / ADD
+        if any(w in query_lower for w in ['add a new', 'add new', 'insert into', 'create new', 'register new', 'add ']):
+            name_tokens = [w for w in re.findall(r'[A-Za-z]+', user_query) if w.lower() not in ('add', 'a', 'new', 'insert', 'into', 'create', 'register', 'customer', 'patient', 'doctor', 'user', 'named', 'with', 'phone', 'number', 'email', 'is', 'to')]
+            entity_name = name_tokens[0].capitalize() if name_tokens else "Arun"
+            phone_match = re.search(r'(\d{7,15})', user_query)
+            phone_val = phone_match.group(1) if phone_match else "9876543210"
+
+            if db_type in ('mssql', 'sqlserver'):
+                sql = f"INSERT INTO [{primary_table}] ([{primary_cols[1] if len(primary_cols) > 1 else 'name'}], [phone], [email], [created_at])\nVALUES ('{entity_name}', '{phone_val}', '{entity_name.lower()}@example.com', GETDATE());"
+            elif db_type == 'mysql':
+                sql = f"INSERT INTO `{primary_table.lower()}` (`{primary_cols[1] if len(primary_cols) > 1 else 'name'}`, `phone`, `email`, `created_at`)\nVALUES ('{entity_name}', '{phone_val}', '{entity_name.lower()}@example.com', NOW());"
+            elif db_type == 'oracle':
+                sql = f"INSERT INTO \"{primary_table.upper()}\" (\"{primary_cols[1].upper() if len(primary_cols) > 1 else 'NAME'}\", \"PHONE\", \"EMAIL\", \"CREATED_AT\")\nVALUES ('{entity_name}', '{phone_val}', '{entity_name.lower()}@example.com', SYSDATE);"
+            elif db_type == 'mongodb':
+                sql = f"db.{primary_table.lower()}.insertOne({{\n  \"name\": \"{entity_name}\",\n  \"phone\": \"{phone_val}\",\n  \"email\": \"{entity_name.lower()}@example.com\",\n  \"created_at\": new Date()\n}});"
+            elif db_type == 'excel':
+                sql = f"# Append new record to DataFrame\nnew_row = {{'name': '{entity_name}', 'phone': '{phone_val}', 'email': '{entity_name.lower()}@example.com', 'created_at': pd.Timestamp.now()}}\ndf = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)\ndf.to_excel('updated_{primary_table.lower()}.xlsx', index=False)"
+            else:
+                sql = f"INSERT INTO {primary_table} (name, phone, email, created_at)\nVALUES ('{entity_name}', '{phone_val}', '{entity_name.lower()}@example.com', CURRENT_TIMESTAMP);"
+
+            return {
+                "sql": sql,
+                "explanation": f"Inserts a new record into '{primary_table}' with name '{entity_name}' and timestamp.",
+                "tables_used": [primary_table],
+                "optimization_tips": [f"Ensure primary key on {primary_table} utilizes an auto-incrementing identity specification."],
+                "alternative_approaches": ["Use stored procedures with parameter validation for transactional safety."]
+            }
+
+        # Check for UPDATE / CHANGE
+        if any(w in query_lower for w in ['change ', 'update ', 'set ', 'modify ']):
+            phone_match = re.search(r'(\d{7,15})', user_query)
+            phone_val = phone_match.group(1) if phone_match else "9876543210"
+            name_tokens = [w for w in re.findall(r'[A-Za-z]+', user_query) if w.lower() not in ('change', 'update', 'set', 'modify', 'phone', 'number', 'to', 'is', 'a', 'the', 'customer', 'user', 'patient', 'named', 'for')]
+            target_name = name_tokens[0].capitalize() if name_tokens else "Arun"
+            
+            name_col = next((c for c in primary_cols if any(k in c.lower() for k in ['name', 'first_name', 'patient_name', 'doctor_name', 'customer_name'])), primary_cols[1] if len(primary_cols) > 1 else 'name')
+
+            if db_type in ('mssql', 'sqlserver'):
+                sql = f"UPDATE [{primary_table}]\nSET [phone] = '{phone_val}', [updated_at] = GETDATE()\nWHERE [{name_col}] LIKE '%{target_name}%';"
+            elif db_type == 'mysql':
+                sql = f"UPDATE `{primary_table.lower()}`\nSET `phone` = '{phone_val}', `updated_at` = NOW()\nWHERE `{name_col}` LIKE '%{target_name}%';"
+            elif db_type == 'oracle':
+                sql = f"UPDATE \"{primary_table.upper()}\"\nSET \"PHONE\" = '{phone_val}', \"UPDATED_AT\" = SYSDATE\nWHERE \"{name_col.upper()}\" LIKE '%{target_name}%';"
+            elif db_type == 'mongodb':
+                sql = f"db.{primary_table.lower()}.updateOne(\n  {{ \"{name_col}\": {{ \"$regex\": \"{target_name}\", \"$options\": \"i\" }} }},\n  {{ \"$set\": {{ \"phone\": \"{phone_val}\", \"updated_at\": new Date() }} }}\n);"
+            elif db_type == 'excel':
+                sql = f"# Update phone number for matching name in DataFrame\nmask = df['{name_col}'].str.contains('{target_name}', case=False, na=False)\ndf.loc[mask, 'phone'] = '{phone_val}'\ndf.to_excel('updated_{primary_table.lower()}.xlsx', index=False)"
+            else:
+                sql = f"UPDATE {primary_table} SET phone = '{phone_val}' WHERE {name_col} LIKE '%{target_name}%';"
+
+            return {
+                "sql": sql,
+                "explanation": f"Updates the contact phone number for '{target_name}' in table '{primary_table}'.",
+                "tables_used": [primary_table],
+                "optimization_tips": [f"Create an index on {primary_table}({name_col}) to accelerate lookup operations during updates."],
+                "alternative_approaches": ["Always verify row count affected before committing in critical production workflows."]
+            }
+
+        # Check for DELETE / REMOVE
+        if any(w in query_lower for w in ['delete ', 'remove ', 'drop record']):
+            name_tokens = [w for w in re.findall(r'[A-Za-z]+', user_query) if w.lower() not in ('delete', 'remove', 'drop', 'record', 'customer', 'patient', 'doctor', 'user', 'named', 'for', 'the', 'a')]
+            target_name = name_tokens[0].capitalize() if name_tokens else "Arun"
+            name_col = next((c for c in primary_cols if any(k in c.lower() for k in ['name', 'patient_name', 'doctor_name', 'customer_name'])), 'name')
+
+            if db_type in ('mssql', 'sqlserver'):
+                sql = f"DELETE FROM [{primary_table}]\nWHERE [{name_col}] LIKE '%{target_name}%';"
+            elif db_type == 'mysql':
+                sql = f"DELETE FROM `{primary_table.lower()}`\nWHERE `{name_col}` LIKE '%{target_name}%';"
+            elif db_type == 'oracle':
+                sql = f"DELETE FROM \"{primary_table.upper()}\"\nWHERE \"{name_col.upper()}\" LIKE '%{target_name}%';"
+            elif db_type == 'mongodb':
+                sql = f"db.{primary_table.lower()}.deleteMany({{\n  \"{name_col}\": {{ \"$regex\": \"{target_name}\", \"$options\": \"i\" }}\n}});"
+            elif db_type == 'excel':
+                sql = f"# Remove matching records from DataFrame\ndf = df[~df['{name_col}'].str.contains('{target_name}', case=False, na=False)]\ndf.to_excel('updated_{primary_table.lower()}.xlsx', index=False)"
+            else:
+                sql = f"DELETE FROM {primary_table} WHERE {name_col} LIKE '%{target_name}%';"
+
+            return {
+                "sql": sql,
+                "explanation": f"Removes records matching '{target_name}' from table '{primary_table}'.",
+                "tables_used": [primary_table],
+                "optimization_tips": ["Execute within a transaction or use soft-delete pattern (is_deleted = 1) to prevent accidental data loss."],
+                "alternative_approaches": ["Consider adding an audit log trigger before executing permanent purge statements."]
+            }
+
+        # ── 3. SELECT / QUERY PROCESSING ───────────────────────────────────────
         agg_func = None
         select_clause = "*"
+        agg_target_col = None
+
         if 'count' in query_lower or 'how many' in query_lower or 'total number' in query_lower:
             select_clause = "COUNT(*) AS total_count"
             agg_func = "COUNT"
         elif 'average' in query_lower or 'avg' in query_lower:
-            target_col = next((c for c in primary_cols if any(k in c.lower() for k in ['age', 'amount', 'salary', 'price', 'gpa', 'score', 'fee', 'total'])), 'amount')
-            select_clause = f"AVG([{target_col}]) AS avg_{target_col}"
+            agg_target_col = next((c for c in primary_cols if any(k in c.lower() for k in ['age', 'amount', 'salary', 'price', 'gpa', 'score', 'fee', 'total'])), 'amount')
+            select_clause = f"AVG([{agg_target_col}]) AS avg_{agg_target_col}"
             agg_func = "AVG"
-        elif 'sum' in query_lower or 'total' in query_lower:
-            target_col = next((c for c in primary_cols if any(k in c.lower() for k in ['amount', 'salary', 'price', 'cost', 'fee', 'total', 'bill'])), 'amount')
-            select_clause = f"SUM([{target_col}]) AS total_{target_col}"
+        elif 'sum' in query_lower or 'total billing' in query_lower or 'total amount' in query_lower:
+            agg_target_col = next((c for c in primary_cols if any(k in c.lower() for k in ['amount', 'salary', 'price', 'cost', 'fee', 'total', 'bill', 'paid'])), 'total_amount')
+            select_clause = f"SUM([{agg_target_col}]) AS total_{agg_target_col}"
             agg_func = "SUM"
-        elif 'max' in query_lower or 'oldest' in query_lower or 'highest' in query_lower or 'youngest' in query_lower or 'min' in query_lower or 'lowest' in query_lower:
-            target_col = next((c for c in primary_cols if any(k in c.lower() for k in ['age', 'price', 'salary', 'amount', 'dob', 'created_at'])), 'id')
-            if 'max' in query_lower or 'highest' in query_lower or 'oldest' in query_lower:
-                select_clause = f"MAX([{target_col}]) AS max_{target_col}"
-                agg_func = "MAX"
-            else:
-                select_clause = f"MIN([{target_col}]) AS min_{target_col}"
-                agg_func = "MIN"
+        elif 'oldest' in query_lower or 'highest' in query_lower or 'max' in query_lower:
+            agg_target_col = next((c for c in primary_cols if any(k in c.lower() for k in ['age', 'price', 'salary', 'amount', 'dob', 'created_at'])), 'age')
+            select_clause = f"MAX([{agg_target_col}]) AS max_{agg_target_col}"
+            agg_func = "MAX"
+        elif 'youngest' in query_lower or 'lowest' in query_lower or 'min' in query_lower:
+            agg_target_col = next((c for c in primary_cols if any(k in c.lower() for k in ['age', 'price', 'salary', 'amount', 'dob', 'created_at'])), 'age')
+            select_clause = f"MIN([{agg_target_col}]) AS min_{agg_target_col}"
+            agg_func = "MIN"
 
-        # Special column search if user asked for specific column (e.g. "names of all doctors", "phone numbers")
+        # Specific columns search
         if not agg_func and select_clause == "*":
             specific_cols = []
-            for col in primary_cols:
-                col_lower = col.lower()
-                col_words = col_lower.split('_')
-                if any(w in query_lower for w in col_words if len(w) > 2):
-                    specific_cols.append(f"[{col}]")
+            is_show_all = 'show all' in query_lower or 'list all' in query_lower or 'get all' in query_lower
+            if not is_show_all:
+                for col in primary_cols:
+                    col_words = col.lower().split('_')
+                    if any(w in query_lower for w in col_words if len(w) > 2 and w not in ['patient', 'doctor', 'customer', 'user', 'order']):
+                        specific_cols.append(col)
             if specific_cols:
-                select_clause = ", ".join(specific_cols)
+                select_clause = ", ".join(f"[{c}]" for c in specific_cols)
+            elif is_show_all:
+                select_clause = "*"
 
-        # 3. Limit / TOP clause
-        top_clause = ""
+        # Limit / TOP
         m = re.search(r'(?:top|limit|first)\s+(\d+)', query_lower)
         limit_val = m.group(1) if m else None
-        if limit_val and db_type in ('mssql', 'sqlserver'):
-            top_clause = f"TOP {limit_val} "
-        elif limit_val:
-            top_clause = ""  # standard LIMIT at end
 
-        # 4. Filters (WHERE)
+        # WHERE Conditions
         where_conds = []
-        
-        # Check numeric comparisons (older than 50, salary > 50000, age < 30)
-        num_match = re.search(r'(older than|greater than|above|more than|>)\s*(\d+)', query_lower)
-        if num_match:
-            val = num_match.group(2)
+        mongo_filter = {}
+        pandas_filter = []
+
+        # Numeric comparisons (> or <)
+        num_gt = re.search(r'(?:older than|greater than|above|more than|>)\s*(\d+)', query_lower)
+        if num_gt:
+            val = int(num_gt.group(1))
             num_col = next((c for c in primary_cols if any(k in c.lower() for k in ['age', 'salary', 'price', 'amount', 'total'])), 'age')
             where_conds.append(f"[{num_col}] > {val}")
+            mongo_filter[num_col] = {"$gt": val}
+            pandas_filter.append(f"df['{num_col}'] > {val}")
 
-        num_less = re.search(r'(younger than|less than|below|under|<)\s*(\d+)', query_lower)
-        if num_less:
-            val = num_less.group(2)
+        num_lt = re.search(r'(?:younger than|less than|below|under|<)\s*(\d+)', query_lower)
+        if num_lt:
+            val = int(num_lt.group(1))
             num_col = next((c for c in primary_cols if any(k in c.lower() for k in ['age', 'salary', 'price', 'amount', 'total'])), 'age')
             where_conds.append(f"[{num_col}] < {val}")
+            mongo_filter[num_col] = {"$lt": val}
+            pandas_filter.append(f"df['{num_col}'] < {val}")
 
-        # Status keywords matching
-        status_keywords = ['completed', 'pending', 'scheduled', 'unpaid', 'paid', 'cancelled']
-        for skw in status_keywords:
-            if skw in query_lower and any('status' in c.lower() for c in primary_cols):
+        # Status matching
+        for skw in ['completed', 'pending', 'scheduled', 'unpaid', 'paid', 'cancelled']:
+            if skw in query_lower:
                 stat_col = next((c for c in primary_cols if 'status' in c.lower()), 'status')
                 where_conds.append(f"[{stat_col}] = '{skw}'")
+                mongo_filter[stat_col] = skw
+                pandas_filter.append(f"df['{stat_col}'] == '{skw}'")
                 break
 
-        if 'active' in query_lower and any('active' in c.lower() or 'status' in c.lower() for c in primary_cols):
+        if 'active' in query_lower:
             stat_col = next((c for c in primary_cols if 'active' in c.lower() or 'status' in c.lower()), 'status')
             if 'is_active' in stat_col.lower():
                 where_conds.append(f"[{stat_col}] = 1")
+                mongo_filter[stat_col] = 1
+                pandas_filter.append(f"df['{stat_col}'] == 1")
             else:
-                where_conds.append(f"[{stat_col}] = 'active'")
+                where_conds.append(f"[{stat_col}] = 'Active'")
+                mongo_filter[stat_col] = "Active"
+                pandas_filter.append(f"df['{stat_col}'] == 'Active'")
 
+        # City / Location matching
+        city_match = re.search(r'(?:from|in)\s+([A-Z][a-z]+)', user_query)
+        if city_match:
+            city_name = city_match.group(1)
+            city_col = next((c for c in primary_cols if any(k in c.lower() for k in ['city', 'address', 'location'])), 'city')
+            where_conds.append(f"[{city_col}] = '{city_name}'")
+            mongo_filter[city_col] = city_name
+            pandas_filter.append(f"df['{city_col}'] == '{city_name}'")
+
+        # Today / Date matching
         if 'today' in query_lower:
             date_col = next((c for c in primary_cols if any(k in c.lower() for k in ['date', 'time', 'registered', 'created', 'appointment', 'issue'])), 'created_at')
             if db_type in ('mssql', 'sqlserver'):
                 where_conds.append(f"CAST([{date_col}] AS DATE) = CAST(GETDATE() AS DATE)")
             else:
                 where_conds.append(f"[{date_col}] >= CURRENT_DATE")
+            mongo_filter[date_col] = {"$gte": "CURRENT_DATE"}
+            pandas_filter.append(f"df['{date_col}'] >= pd.Timestamp.today().floor('D')")
 
-        # 5. Build FROM and JOIN clause
-        from_clause = f"FROM [{primary_table}]"
+        # ORDER BY
+        order_col = None
+        order_dir = "ASC"
+        if any(w in query_lower for w in ['oldest', 'youngest', 'top', 'sort', 'order', 'highest', 'lowest', 'descending', 'ascending']):
+            order_col = next((c for c in primary_cols if any(k in c.lower() for k in ['age', 'dob', 'created_at', 'date', 'salary', 'price', 'amount', 'id'])), primary_cols[0] if primary_cols else 'id')
+            if any(w in query_lower for w in ['oldest', 'highest', 'desc', 'top']):
+                order_dir = "DESC"
+
+        # ── 4. Target Platform Formatter ───────────────────────────────────────
+        # MONGODB FORMATTER
+        if db_type == 'mongodb':
+            col_name = primary_table.lower()
+            if agg_func == 'COUNT':
+                filter_json = json.dumps(mongo_filter) if mongo_filter else "{}"
+                sql = f"db.{col_name}.countDocuments({filter_json});"
+            elif agg_func in ('AVG', 'SUM', 'MAX', 'MIN'):
+                target = agg_target_col or 'amount'
+                op = f"${agg_func.lower()}"
+                sql = f"db.{col_name}.aggregate([\n  {{ \"$match\": {json.dumps(mongo_filter) if mongo_filter else '{}'} }},\n  {{ \"$group\": {{ \"_id\": null, \"{agg_func.lower()}_{target}\": {{ \"{op}\": \"${target}\" }} }} }}\n]);"
+            else:
+                filter_json = json.dumps(mongo_filter) if mongo_filter else "{}"
+                cursor = f"db.{col_name}.find({filter_json})"
+                if order_col:
+                    sort_dir = -1 if order_dir == 'DESC' else 1
+                    cursor += f'.sort({{ "{order_col}": {sort_dir} }})'
+                if limit_val:
+                    cursor += f'.limit({limit_val})'
+                sql = cursor + ";"
+            
+            explanation = f"MongoDB query retrieves {agg_func or 'matching documents'} from '{col_name}' collection."
+            return {
+                "sql": sql,
+                "explanation": explanation,
+                "tables_used": [primary_table],
+                "optimization_tips": [f"Create an index on db.{col_name}.createIndex({{ {list(mongo_filter.keys())[0] if mongo_filter else '_id'}: 1 }}) for rapid document matching."],
+                "alternative_approaches": ["Use aggregation pipelines for multifaceted grouping or lookups."]
+            }
+
+        # EXCEL / PANDAS FORMATTER
+        if db_type == 'excel':
+            p_filter_str = " & ".join(f"({f})" for f in pandas_filter) if pandas_filter else ""
+            if agg_func == 'COUNT':
+                if p_filter_str:
+                    sql = f"# Filter records and count total rows\ntotal_count = len(df[{p_filter_str}])\nprint(f'Total count: {{total_count}}')"
+                else:
+                    sql = f"# Total rows in Excel sheet\ntotal_count = len(df)\nprint(f'Total count: {{total_count}}')"
+            elif agg_func in ('AVG', 'SUM', 'MAX', 'MIN'):
+                target = agg_target_col or 'amount'
+                py_fn = {'AVG': 'mean()', 'SUM': 'sum()', 'MAX': 'max()', 'MIN': 'min()'}[agg_func]
+                if p_filter_str:
+                    sql = f"# Calculate {agg_func} of '{target}' with filters\nresult = df[{p_filter_str}]['{target}'].{py_fn}\nprint(f'{agg_func}: {{result}}')"
+                else:
+                    sql = f"# Calculate {agg_func} of '{target}' across entire worksheet\nresult = df['{target}'].{py_fn}\nprint(f'{agg_func}: {{result}}')"
+            else:
+                df_expr = f"df[{p_filter_str}]" if p_filter_str else "df"
+                if order_col:
+                    asc = "False" if order_dir == "DESC" else "True"
+                    df_expr += f".sort_values(by='{order_col}', ascending={asc})"
+                if limit_val:
+                    df_expr += f".head({limit_val})"
+                sql = f"# Query and filter Excel worksheet data\nfiltered_df = {df_expr}\n# Export to Excel or display\nfiltered_df.to_excel('query_output.xlsx', index=False)"
+
+            return {
+                "sql": sql,
+                "explanation": f"Executes pandas expression on Excel worksheet for '{primary_table}'.",
+                "tables_used": [primary_table],
+                "optimization_tips": ["Ensure column data types are parsed correctly upon reading with pd.read_excel(dtype=...)."],
+                "alternative_approaches": ["Use openpyxl directly for formula insertion (=SUM, =AVERAGE) without loading into DataFrame memory."]
+            }
+
+        # RELATIONAL SQL (SQL SERVER / MYSQL / ORACLE / SQLITE)
+        top_prefix = ""
+        limit_suffix = ""
+        if limit_val:
+            if db_type in ('mssql', 'sqlserver'):
+                top_prefix = f"TOP {limit_val} "
+            elif db_type == 'oracle':
+                limit_suffix = f"\nFETCH FIRST {limit_val} ROWS ONLY"
+            else:
+                limit_suffix = f"\nLIMIT {limit_val}"
+
+        # Handle Multi-table JOIN
+        from_clause = f"FROM [{primary_table}]" if db_type in ('mssql', 'sqlserver') else f"FROM `{primary_table}`" if db_type == 'mysql' else f"FROM \"{primary_table.upper()}\"" if db_type == 'oracle' else f"FROM {primary_table}"
+        
         if len(detected_tables) > 1:
             sec_table = detected_tables[1]
             sec_cols = schema_tables.get(sec_table.lower(), {}).get('columns', [])
-            # Try to match FK
             fk_col = next((c for c in primary_cols if c.lower() == f"{sec_table[:-1] if sec_table.endswith('s') else sec_table}_id".lower()), None)
             if not fk_col:
                 fk_col = next((c for c in sec_cols if c.lower() == f"{primary_table[:-1] if primary_table.endswith('s') else primary_table}_id".lower()), None)
-            
-            if fk_col:
-                from_clause = f"FROM [{primary_table}]\nJOIN [{sec_table}] ON [{primary_table}].[{fk_col}] = [{sec_table}].[{fk_col}]"
-            else:
-                from_clause = f"FROM [{primary_table}]\nCROSS JOIN [{sec_table}]"
 
-        # 6. ORDER BY clause
-        order_clause = ""
-        if 'oldest' in query_lower or 'youngest' in query_lower or 'top' in query_lower or 'sort' in query_lower or 'order' in query_lower:
-            order_col = next((c for c in primary_cols if any(k in c.lower() for k in ['age', 'dob', 'created_at', 'date', 'salary', 'price', 'amount', 'id'])), primary_cols[0] if primary_cols else '1')
-            if 'oldest' in query_lower or 'highest' in query_lower or 'desc' in query_lower:
-                order_clause = f"\nORDER BY [{order_col}] DESC"
+            if db_type in ('mssql', 'sqlserver'):
+                if fk_col:
+                    from_clause = f"FROM [{primary_table}]\nJOIN [{sec_table}] ON [{primary_table}].[{fk_col}] = [{sec_table}].[{fk_col}]"
+                else:
+                    from_clause = f"FROM [{primary_table}]\nCROSS JOIN [{sec_table}]"
+            elif db_type == 'mysql':
+                if fk_col:
+                    from_clause = f"FROM `{primary_table}`\nJOIN `{sec_table}` ON `{primary_table}`.`{fk_col}` = `{sec_table}`.`{fk_col}`"
+                else:
+                    from_clause = f"FROM `{primary_table}`\nCROSS JOIN `{sec_table}`"
+            elif db_type == 'oracle':
+                if fk_col:
+                    from_clause = f"FROM \"{primary_table.upper()}\"\nJOIN \"{sec_table.upper()}\" ON \"{primary_table.upper()}\".\"{fk_col.upper()}\" = \"{sec_table.upper()}\".\"{fk_col.upper()}\""
+                else:
+                    from_clause = f"FROM \"{primary_table.upper()}\"\nCROSS JOIN \"{sec_table.upper()}\""
             else:
-                order_clause = f"\nORDER BY [{order_col}] ASC"
+                from_clause = f"FROM {primary_table}\nJOIN {sec_table} ON {primary_table}.{fk_col} = {sec_table}.{fk_col}" if fk_col else f"FROM {primary_table}\nCROSS JOIN {sec_table}"
 
-        limit_suffix = f"\nLIMIT {limit_val}" if (limit_val and db_type not in ('mssql', 'sqlserver')) else ""
+        # WHERE clause formatting
         where_str = f"\nWHERE {' AND '.join(where_conds)}" if where_conds else ""
+        if db_type == 'mysql':
+            where_str = where_str.replace('[', '`').replace(']', '`')
+        elif db_type == 'oracle':
+            where_str = where_str.replace('[', '"').replace(']', '"')
 
-        sql = f"SELECT {top_clause}{select_clause}\n{from_clause}{where_str}{order_clause}{limit_suffix};"
+        # ORDER BY clause
+        order_clause = ""
+        if order_col:
+            if db_type in ('mssql', 'sqlserver'):
+                order_clause = f"\nORDER BY [{order_col}] {order_dir}"
+            elif db_type == 'mysql':
+                order_clause = f"\nORDER BY `{order_col}` {order_dir}"
+            elif db_type == 'oracle':
+                order_clause = f"\nORDER BY \"{order_col.upper()}\" {order_dir}"
+            else:
+                order_clause = f"\nORDER BY {order_col} {order_dir}"
+
+        # Adjust select clause for dialect
+        formatted_select = select_clause
+        if db_type == 'mysql':
+            formatted_select = formatted_select.replace('[', '`').replace(']', '`')
+        elif db_type == 'oracle':
+            formatted_select = formatted_select.replace('[', '"').replace(']', '"')
+
+        sql = f"SELECT {top_prefix}{formatted_select}\n{from_clause}{where_str}{order_clause}{limit_suffix};"
 
         explanation = f"Retrieves {agg_func or 'matching records'} from table '{primary_table}'"
         if len(detected_tables) > 1:

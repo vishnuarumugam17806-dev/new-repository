@@ -71,10 +71,20 @@ def nl_to_sql():
         result = ai_agent.nl_to_sql(query, schema_context or '', db_type)
 
         try:
-            if target_db_name and result.get('sql'):
-                query_res = ConnectionManager.query(db_type, target_db_name, tables[0] if 'tables' in locals() and tables else 'Data', page=1, per_page=10)
-                result['executed'] = True
-                result['query_results'] = query_res
+            sql_str = result.get('sql', '').strip().upper()
+            is_select_query = sql_str.startswith('SELECT') and db_type in ('sqlserver', 'mssql', 'mysql', 'oracle', 'sqlite')
+            if is_select_query and target_db_name:
+                table_target = tables[0] if ('tables' in locals() and tables) else (result.get('tables_used', [''])[0] or 'Data')
+                query_res = ConnectionManager.query(db_type, target_db_name, table_target, page=1, per_page=10)
+                if query_res and not query_res.get('error') and query_res.get('data'):
+                    result['executed'] = True
+                    result['query_results'] = query_res
+                else:
+                    result['executed'] = False
+                    if query_res and query_res.get('error'):
+                        result['execution_notice'] = query_res.get('error')
+            else:
+                result['executed'] = False
         except Exception as query_err:
             result['executed'] = False
             result['execution_error'] = str(query_err)

@@ -90,7 +90,10 @@
             <!-- SQL Output Card -->
             <div class="card shadow-sm mb-4 bg-white">
                 <div class="card-header bg-dark text-white d-flex align-items-center justify-content-between py-3">
-                    <span class="fw-bold"><i class="fa-solid fa-terminal text-cyan me-2"></i>Generated Platform Query Syntax</span>
+                    <div class="d-flex align-items-center">
+                        <span class="fw-bold"><i class="fa-solid fa-terminal text-cyan me-2"></i>Generated Platform Query Syntax</span>
+                        <span id="dialectBadge" class="badge bg-primary ms-2 font-monospace">SQL Server</span>
+                    </div>
                     <button class="btn btn-outline-light btn-sm" onclick="copySql()">
                         <i class="fa-solid fa-copy me-1"></i> Copy
                     </button>
@@ -170,6 +173,18 @@ async function runQuery() {
         const data = await res.json();
         document.getElementById('resultLoading').classList.add('d-none');
         document.getElementById('resultOutput').classList.remove('d-none');
+
+        const dialectLabels = {
+            'sqlserver': 'SQL Server (T-SQL)',
+            'mysql': 'MySQL Engine',
+            'oracle': 'Oracle PL/SQL',
+            'mongodb': 'MongoDB MQL / PyMongo',
+            'excel': 'Python Pandas / Excel'
+        };
+        const badgeElem = document.getElementById('dialectBadge');
+        if (badgeElem) {
+            badgeElem.textContent = dialectLabels[selectedDbType] || selectedDbType.toUpperCase();
+        }
 
         document.getElementById('sqlDisplay').textContent = data.sql || '-- No query generated';
         document.getElementById('explanationDisplay').textContent = data.explanation || 'Query generated successfully.';
