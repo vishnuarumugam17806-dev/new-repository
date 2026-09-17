@@ -329,240 +329,244 @@ class FallbackEngine:
         return {'database': 'smartdb', 'collections': collections}
 
     def nl_to_sql(self, user_query: str, schema_context: str, db_type: str = 'sqlite') -> dict:
-        """Query Assistant: Convert natural language query to SQL in Fallback Mode."""
+        """Query Assistant: Convert natural language query to SQL dynamically based on schema_context."""
         query_lower = user_query.lower().strip()
+
+        # 0. Check for General SQL Doubts / Conceptual Questions
+        doubt_keywords = ['what is', 'explain', 'difference between', 'how to use', 'why use', 'what does', 'meaning of']
+        if any(dk in query_lower for dk in doubt_keywords):
+            if 'index' in query_lower:
+                return {
+                    "sql": "CREATE NONCLUSTERED INDEX IX_Customer_Email ON Customers(Email);",
+                    "explanation": "An Index in SQL is a data structure that speeds up retrieval of records from a database table at the cost of additional write time and storage space.",
+                    "tables_used": ["Customers"],
+                    "optimization_tips": ["Create indexes on columns frequently used in WHERE, JOIN, and ORDER BY clauses."],
+                    "alternative_approaches": ["Use Clustered Index for primary key sorting, and Non-Clustered Indexes for secondary lookup columns."]
+                }
+            elif 'join' in query_lower:
+                return {
+                    "sql": "SELECT c.customer_name, o.order_date\nFROM Customers c\nINNER JOIN Orders o ON c.customer_id = o.customer_id;",
+                    "explanation": "JOIN combines rows from two or more tables based on a related column between them. INNER JOIN returns matching records in both tables, whereas LEFT JOIN returns all records from the left table.",
+                    "tables_used": ["Customers", "Orders"],
+                    "optimization_tips": ["Ensure join columns are indexed and have matching data types."],
+                    "alternative_approaches": ["Use LEFT JOIN if you need unmatched parent records included in results."]
+                }
+            elif 'group by' in query_lower or 'aggregate' in query_lower:
+                return {
+                    "sql": "SELECT department_id, COUNT(*) AS total_employees, AVG(salary) AS avg_salary\nFROM Employees\nGROUP BY department_id;",
+                    "explanation": "GROUP BY statement groups rows that have the same values into summary rows, often used with aggregate functions (COUNT, MAX, MIN, SUM, AVG).",
+                    "tables_used": ["Employees"],
+                    "optimization_tips": ["Use HAVING to filter aggregated groups after grouping."],
+                    "alternative_approaches": ["Use Window Functions (PARTITION BY) for group calculations alongside row-level data."]
+                }
+            elif 'primary key' in query_lower or 'foreign key' in query_lower or 'key' in query_lower:
+                return {
+                    "sql": "ALTER TABLE Orders\nADD CONSTRAINT FK_Order_Customer FOREIGN KEY (customer_id) REFERENCES Customers(customer_id);",
+                    "explanation": "A Primary Key uniquely identifies each record in a table. A Foreign Key enforces referential integrity between tables by linking a column to a Primary Key in another table.",
+                    "tables_used": ["Orders", "Customers"],
+                    "optimization_tips": ["Always define Primary Keys and Foreign Keys for referential safety."],
+                    "alternative_approaches": ["Use composite primary keys for junction/link tables in many-to-many relationships."]
+                }
         
-        # 1. Check exact matches for standard examples
-        # Example 1: Show all active users registered this month
-        if 'active users' in query_lower and ('registered this month' in query_lower or 'created this month' in query_lower):
-            if db_type == 'sqlite':
-                sql = ("SELECT user_id, username, email, created_at \n"
-                       "FROM users \n"
-                       "WHERE is_active = 1 \n"
-                       "  AND created_at >= date('now', 'start of month');")
-            elif db_type == 'mysql':
-                sql = ("SELECT user_id, username, email, created_at \n"
-                       "FROM users \n"
-                       "WHERE is_active = 1 \n"
-                       "  AND created_at >= DATE_FORMAT(NOW() ,'%Y-%m-01');")
-            elif db_type == 'postgresql':
-                sql = ("SELECT user_id, username, email, created_at \n"
-                       "FROM users \n"
-                       "WHERE is_active = 1 \n"
-                       "  AND created_at >= date_trunc('month', current_date);")
-            else: # mssql
-                sql = ("SELECT user_id, username, email, created_at \n"
-                       "FROM users \n"
-                       "WHERE is_active = 1 \n"
-                       "  AND created_at >= DATEADD(month, DATEDIFF(month, 0, GETDATE()), 0);")
-                       
-            return {
-                "sql": sql,
-                "explanation": "Retrieves the ID, username, email, and registration timestamp for all active users created during the current month.",
-                "tables_used": ["users"],
-                "optimization_tips": ["Add a composite index on users (is_active, created_at) to avoid a full table scan."],
-                "alternative_approaches": ["If user activity logs are stored separately, join with the login history table to double-check login activity."]
-            }
+        # Parse available tables & columns from schema_context (if provided) or ENTITY_PROFILES
+        schema_tables = {}
+        has_provided_schema = False
+        if isinstance(schema_context, dict) and schema_context.get('tables'):
+            has_provided_schema = True
+            for t_name, t_meta in schema_context.get('tables', {}).items():
+                col_names = [c['name'] for c in t_meta.get('columns', [])]
+                schema_tables[t_name.lower()] = {
+                    'original_name': t_name,
+                    'columns': col_names,
+                    'fks': t_meta.get('foreign_keys', [])
+                }
+        elif isinstance(schema_context, str) and schema_context.strip():
+            matches = re.findall(r'CREATE\s+TABLE\s+\[?(\w+)\]?\s*\((.*?)\);', schema_context, flags=re.DOTALL | re.IGNORECASE)
+            if matches:
+                has_provided_schema = True
+                for tbl, cols_body in matches:
+                    col_matches = re.findall(r'\[?(\w+)\]?\s+[A-Za-z0-9_()]+', cols_body)
+                    schema_tables[tbl.lower()] = {
+                        'original_name': tbl,
+                        'columns': col_matches,
+                        'fks': []
+                    }
 
-        # Example 2: Find top 5 products by sales count
-        elif 'top 5 products' in query_lower and 'sales count' in query_lower:
-            limit_clause = "LIMIT 5"
-            top_select = "SELECT"
-            if db_type == 'mssql':
-                limit_clause = ""
-                top_select = "SELECT TOP 5"
-                
-            sql = (f"{top_select} p.product_id, p.name, SUM(oi.quantity) AS sales_count\n"
-                   "FROM products p\n"
-                   "JOIN order_items oi ON p.product_id = oi.product_id\n"
-                   "GROUP BY p.product_id, p.name\n"
-                   "ORDER BY sales_count DESC\n"
-                   f"{limit_clause};".strip())
-                   
-            return {
-                "sql": sql,
-                "explanation": "Joins products and order_items, calculates the sum of quantities sold per product, groups the results, and sorts in descending order to return the top 5.",
-                "tables_used": ["products", "order_items"],
-                "optimization_tips": ["Create an index on order_items(product_id, quantity) to facilitate quick grouping and aggregation."],
-                "alternative_approaches": ["Query a denormalized product_sales stats table if sales counts are pre-calculated daily for performance."]
-            }
+        # Fallback to ENTITY_PROFILES if no schema provided
+        if not schema_tables:
+            for ent, info in ENTITY_PROFILES.items():
+                tbl = ent + 's' if not ent.endswith('s') else ent
+                col_names = [info['pk']] + [c[0] for c in info['cols']]
+                schema_tables[tbl.lower()] = {
+                    'original_name': tbl,
+                    'columns': col_names,
+                    'fks': []
+                }
 
-        # Example 3: List employees with salary above the department average
-        elif 'employees' in query_lower and 'salary' in query_lower and 'department average' in query_lower:
-            sql = ("SELECT e.employee_id, e.first_name, e.last_name, e.salary, e.department_id\n"
-                   "FROM employees e\n"
-                   "WHERE e.salary > (\n"
-                   "    SELECT AVG(salary) \n"
-                   "    FROM employees \n"
-                   "    WHERE department_id = e.department_id\n"
-                   ");")
-            return {
-                "sql": sql,
-                "explanation": "Uses a correlated subquery to compute the average salary of employees in each department, then selects employees whose salaries exceed that average.",
-                "tables_used": ["employees"],
-                "optimization_tips": ["Create a composite index on employees (department_id, salary) to optimize the inner subquery evaluation."],
-                "alternative_approaches": ["Use a window function `AVG(salary) OVER(PARTITION BY department_id)` to achieve the same result in a single pass without a subquery."]
-            }
-
-        # Example 4: Get all overdue orders with customer details
-        elif 'overdue orders' in query_lower or ('overdue' in query_lower and 'order' in query_lower):
-            date_func = "date('now', '-7 days')"
-            if db_type == 'mysql':
-                date_func = "DATE_SUB(NOW(), INTERVAL 7 DAY)"
-            elif db_type == 'postgresql':
-                date_func = "CURRENT_DATE - INTERVAL '7 days'"
-            elif db_type == 'mssql':
-                date_func = "DATEADD(day, -7, GETDATE())"
-                
-            sql = ("SELECT o.order_id, o.total_amount, o.status, o.created_at, c.first_name, c.last_name, c.email\n"
-                   "FROM orders o\n"
-                   "JOIN customers c ON o.customer_id = c.customer_id\n"
-                   "WHERE o.status = 'pending'\n"
-                   f"  AND o.created_at < {date_func};")
-            return {
-                "sql": sql,
-                "explanation": "Joins orders with customers, filtering for orders in a 'pending' state that were created more than 7 days ago.",
-                "tables_used": ["orders", "customers"],
-                "optimization_tips": ["Create a composite index on orders (status, created_at) to quickly narrow down pending overdue orders."],
-                "alternative_approaches": ["Use a separate `shipping_status` column or track SLA deadlines in an order_shipments table for finer granularity."]
-            }
-
-        # Example 5: Count students enrolled per course
-        elif 'students enrolled per course' in query_lower or ('count' in query_lower and 'enrolled' in query_lower and 'course' in query_lower):
-            sql = ("SELECT c.course_id, c.course_code, c.title, COUNT(e.student_id) AS student_count\n"
-                   "FROM courses c\n"
-                   "LEFT JOIN enrollments e ON c.course_id = e.course_id\n"
-                   "GROUP BY c.course_id, c.course_code, c.title;")
-            return {
-                "sql": sql,
-                "explanation": "LEFT JOINs courses and enrollments so courses with zero students are still included in the results, counting student enrollments per course.",
-                "tables_used": ["courses", "enrollments"],
-                "optimization_tips": ["Add a database index on enrollments(course_id) to optimize the JOIN query performance."],
-                "alternative_approaches": ["Use a subquery in the SELECT list to count students, though a LEFT JOIN with GROUP BY is typically more standard."]
-            }
-
-        # 2. General parsing strategy
-        # Detect mentioned entities/tables based on the query keywords
+        # 1. Identify target tables by matching query words with table names or entity synonyms
         detected_tables = []
-        for ent, info in ENTITY_PROFILES.items():
-            plural = ent + 's'
-            if ent in query_lower or plural in query_lower:
-                table_name = ent + 's' if not ent.endswith('s') else ent
-                if table_name not in detected_tables:
-                    detected_tables.append(table_name)
-                    
-        if not detected_tables:
-            # Try parsing schema_context to find tables
-            if schema_context:
-                tables_in_context = re.findall(r'CREATE\s+TABLE\s+(\w+)', schema_context, flags=re.IGNORECASE)
-                for tbl in tables_in_context:
-                    if tbl.lower() in query_lower:
-                        detected_tables.append(tbl)
-            
-        if not detected_tables:
-            detected_tables = ["items"]
+        words = re.findall(r'\w+', query_lower)
+        stem_words = [w.rstrip('s') for w in words if len(w) > 2]
+        for tbl_lower, t_meta in schema_tables.items():
+            orig = t_meta['original_name']
+            singular = tbl_lower[:-1] if tbl_lower.endswith('s') else tbl_lower
+            if tbl_lower in query_lower or singular in query_lower or any(sw in tbl_lower for sw in stem_words):
+                if orig not in detected_tables:
+                    detected_tables.append(orig)
 
-        # Build SELECT columns
-        select_cols = "*"
+        # Dynamic entity extraction if no existing table matched
+        if not detected_tables:
+            stop_words = {'show', 'all', 'find', 'list', 'get', 'select', 'top', 'count', 'total', 'the', 'with', 'from', 'where', 'and', 'or', 'for', 'in', 'of', 'active', 'by', 'order', 'sort', 'having'}
+            candidate_nouns = [w for w in words if len(w) > 3 and w not in stop_words]
+            
+            if candidate_nouns and not has_provided_schema:
+                raw_entity = candidate_nouns[0].capitalize()
+                detected_tables = [raw_entity]
+                cols = [f"{raw_entity.lower()}_id"]
+                if 'name' in query_lower: cols.append('name')
+                if 'age' in query_lower: cols.append('age')
+                if 'salary' in query_lower: cols.append('salary')
+                if 'price' in query_lower: cols.append('price')
+                if 'amount' in query_lower: cols.append('amount')
+                if 'status' in query_lower: cols.append('status')
+                if 'date' in query_lower or 'time' in query_lower or 'registered' in query_lower: cols.append('created_at')
+                
+                schema_tables[raw_entity.lower()] = {
+                    'original_name': raw_entity,
+                    'columns': cols,
+                    'fks': []
+                }
+            elif schema_tables:
+                detected_tables = [next(iter(schema_tables.values()))['original_name']]
+            else:
+                detected_tables = ["Patients"]
+
+        # 2. Select columns
+        primary_table = detected_tables[0]
+        primary_cols = schema_tables.get(primary_table.lower(), {}).get('columns', [])
+        
+        # Check for aggregation
         agg_func = None
-        if 'count' in query_lower or 'how many' in query_lower:
-            select_cols = "COUNT(*)"
+        select_clause = "*"
+        if 'count' in query_lower or 'how many' in query_lower or 'total number' in query_lower:
+            select_clause = "COUNT(*) AS total_count"
             agg_func = "COUNT"
         elif 'average' in query_lower or 'avg' in query_lower:
-            # Guess column
-            col = "price" if "price" in query_lower or "product" in query_lower else ("salary" if "salary" in query_lower or "employee" in query_lower else "amount")
-            select_cols = f"AVG({col})"
+            target_col = next((c for c in primary_cols if any(k in c.lower() for k in ['age', 'amount', 'salary', 'price', 'gpa', 'score', 'fee', 'total'])), 'amount')
+            select_clause = f"AVG([{target_col}]) AS avg_{target_col}"
             agg_func = "AVG"
         elif 'sum' in query_lower or 'total' in query_lower:
-            col = "price" if "price" in query_lower or "product" in query_lower else ("salary" if "salary" in query_lower or "employee" in query_lower else "amount")
-            select_cols = f"SUM({col})"
+            target_col = next((c for c in primary_cols if any(k in c.lower() for k in ['amount', 'salary', 'price', 'cost', 'fee', 'total', 'bill'])), 'amount')
+            select_clause = f"SUM([{target_col}]) AS total_{target_col}"
             agg_func = "SUM"
-
-        # Build WHERE filters
-        filters = []
-        if 'active' in query_lower:
-            filters.append("is_active = 1")
-        if 'completed' in query_lower:
-            filters.append("status = 'completed'")
-        if 'pending' in query_lower:
-            filters.append("status = 'pending'")
-        if 'today' in query_lower:
-            if db_type == 'sqlite':
-                filters.append("created_at >= date('now')")
-            elif db_type == 'mysql':
-                filters.append("created_at >= CURDATE()")
-            elif db_type == 'postgresql':
-                filters.append("created_at >= CURRENT_DATE")
+        elif 'max' in query_lower or 'oldest' in query_lower or 'highest' in query_lower or 'youngest' in query_lower or 'min' in query_lower or 'lowest' in query_lower:
+            target_col = next((c for c in primary_cols if any(k in c.lower() for k in ['age', 'price', 'salary', 'amount', 'dob', 'created_at'])), 'id')
+            if 'max' in query_lower or 'highest' in query_lower or 'oldest' in query_lower:
+                select_clause = f"MAX([{target_col}]) AS max_{target_col}"
+                agg_func = "MAX"
             else:
-                filters.append("created_at >= CAST(GETDATE() AS DATE)")
+                select_clause = f"MIN([{target_col}]) AS min_{target_col}"
+                agg_func = "MIN"
 
-        # Build LIMIT
-        limit_clause = ""
-        top_select = ""
+        # Special column search if user asked for specific column (e.g. "names of all doctors", "phone numbers")
+        if not agg_func and select_clause == "*":
+            specific_cols = []
+            for col in primary_cols:
+                col_lower = col.lower()
+                col_words = col_lower.split('_')
+                if any(w in query_lower for w in col_words if len(w) > 2):
+                    specific_cols.append(f"[{col}]")
+            if specific_cols:
+                select_clause = ", ".join(specific_cols)
+
+        # 3. Limit / TOP clause
+        top_clause = ""
         m = re.search(r'(?:top|limit|first)\s+(\d+)', query_lower)
-        if m:
-            limit_val = m.group(1)
-            if db_type == 'mssql':
-                top_select = f"TOP {limit_val} "
+        limit_val = m.group(1) if m else None
+        if limit_val and db_type in ('mssql', 'sqlserver'):
+            top_clause = f"TOP {limit_val} "
+        elif limit_val:
+            top_clause = ""  # standard LIMIT at end
+
+        # 4. Filters (WHERE)
+        where_conds = []
+        
+        # Check numeric comparisons (older than 50, salary > 50000, age < 30)
+        num_match = re.search(r'(older than|greater than|above|more than|>)\s*(\d+)', query_lower)
+        if num_match:
+            val = num_match.group(2)
+            num_col = next((c for c in primary_cols if any(k in c.lower() for k in ['age', 'salary', 'price', 'amount', 'total'])), 'age')
+            where_conds.append(f"[{num_col}] > {val}")
+
+        num_less = re.search(r'(younger than|less than|below|under|<)\s*(\d+)', query_lower)
+        if num_less:
+            val = num_less.group(2)
+            num_col = next((c for c in primary_cols if any(k in c.lower() for k in ['age', 'salary', 'price', 'amount', 'total'])), 'age')
+            where_conds.append(f"[{num_col}] < {val}")
+
+        # Status keywords matching
+        status_keywords = ['completed', 'pending', 'scheduled', 'unpaid', 'paid', 'cancelled']
+        for skw in status_keywords:
+            if skw in query_lower and any('status' in c.lower() for c in primary_cols):
+                stat_col = next((c for c in primary_cols if 'status' in c.lower()), 'status')
+                where_conds.append(f"[{stat_col}] = '{skw}'")
+                break
+
+        if 'active' in query_lower and any('active' in c.lower() or 'status' in c.lower() for c in primary_cols):
+            stat_col = next((c for c in primary_cols if 'active' in c.lower() or 'status' in c.lower()), 'status')
+            if 'is_active' in stat_col.lower():
+                where_conds.append(f"[{stat_col}] = 1")
             else:
-                limit_clause = f"\nLIMIT {limit_val}"
+                where_conds.append(f"[{stat_col}] = 'active'")
 
-        # Join tables
-        from_clause = ""
-        if len(detected_tables) == 1:
-            from_clause = f"FROM {detected_tables[0]}"
-        elif len(detected_tables) >= 2:
-            # Let's see if we can find a relationship
-            tbl1 = detected_tables[0]
-            tbl2 = detected_tables[1]
-            sing1 = tbl1[:-1] if tbl1.endswith('s') else tbl1
-            sing2 = tbl2[:-1] if tbl2.endswith('s') else tbl2
+        if 'today' in query_lower:
+            date_col = next((c for c in primary_cols if any(k in c.lower() for k in ['date', 'time', 'registered', 'created', 'appointment', 'issue'])), 'created_at')
+            if db_type in ('mssql', 'sqlserver'):
+                where_conds.append(f"CAST([{date_col}] AS DATE) = CAST(GETDATE() AS DATE)")
+            else:
+                where_conds.append(f"[{date_col}] >= CURRENT_DATE")
+
+        # 5. Build FROM and JOIN clause
+        from_clause = f"FROM [{primary_table}]"
+        if len(detected_tables) > 1:
+            sec_table = detected_tables[1]
+            sec_cols = schema_tables.get(sec_table.lower(), {}).get('columns', [])
+            # Try to match FK
+            fk_col = next((c for c in primary_cols if c.lower() == f"{sec_table[:-1] if sec_table.endswith('s') else sec_table}_id".lower()), None)
+            if not fk_col:
+                fk_col = next((c for c in sec_cols if c.lower() == f"{primary_table[:-1] if primary_table.endswith('s') else primary_table}_id".lower()), None)
             
-            pk1 = ENTITY_PROFILES.get(sing1, {}).get('pk', f'{sing1}_id')
-            pk2 = ENTITY_PROFILES.get(sing2, {}).get('pk', f'{sing2}_id')
-            
-            from_clause = f"FROM {tbl1} t1\nJOIN {tbl2} t2 ON t1.{pk2} = t2.{pk2}"
-            if sing1 == 'order' and sing2 == 'customer':
-                from_clause = "FROM orders o\nJOIN customers c ON o.customer_id = c.customer_id"
-            elif sing1 == 'customer' and sing2 == 'order':
-                from_clause = "FROM orders o\nJOIN customers c ON o.customer_id = c.customer_id"
-            elif sing1 == 'order_item' or sing2 == 'order_item':
-                if 'product' in [sing1, sing2]:
-                    from_clause = "FROM order_items oi\nJOIN products p ON oi.product_id = p.product_id"
-                elif 'order' in [sing1, sing2]:
-                    from_clause = "FROM order_items oi\nJOIN orders o ON oi.order_id = o.order_id"
-            elif sing1 == 'book' and sing2 == 'author':
-                from_clause = "FROM books b\nJOIN authors a ON b.author_id = a.author_id"
-            elif sing1 == 'course' and sing2 == 'enrollment':
-                from_clause = "FROM courses c\nJOIN enrollments e ON c.course_id = e.course_id"
-            elif sing1 == 'student' and sing2 == 'enrollment':
-                from_clause = "FROM students s\nJOIN enrollments e ON s.student_id = e.student_id"
-            elif sing1 == 'patient' and sing2 == 'appointment':
-                from_clause = "FROM patients p\nJOIN appointments a ON p.patient_id = a.patient_id"
-            elif sing1 == 'doctor' and sing2 == 'appointment':
-                from_clause = "FROM doctors d\nJOIN appointments a ON d.doctor_id = a.doctor_id"
-            elif sing1 == 'employee' and sing2 == 'department':
-                from_clause = "FROM employees e\nJOIN departments d ON e.department_id = d.department_id"
-        else:
-            from_clause = f"FROM items"
+            if fk_col:
+                from_clause = f"FROM [{primary_table}]\nJOIN [{sec_table}] ON [{primary_table}].[{fk_col}] = [{sec_table}].[{fk_col}]"
+            else:
+                from_clause = f"FROM [{primary_table}]\nCROSS JOIN [{sec_table}]"
 
-        where_clause = ""
-        if filters:
-            where_clause = "\nWHERE " + " AND ".join(filters)
+        # 6. ORDER BY clause
+        order_clause = ""
+        if 'oldest' in query_lower or 'youngest' in query_lower or 'top' in query_lower or 'sort' in query_lower or 'order' in query_lower:
+            order_col = next((c for c in primary_cols if any(k in c.lower() for k in ['age', 'dob', 'created_at', 'date', 'salary', 'price', 'amount', 'id'])), primary_cols[0] if primary_cols else '1')
+            if 'oldest' in query_lower or 'highest' in query_lower or 'desc' in query_lower:
+                order_clause = f"\nORDER BY [{order_col}] DESC"
+            else:
+                order_clause = f"\nORDER BY [{order_col}] ASC"
 
-        sql = f"SELECT {top_select}{select_cols}\n{from_clause}{where_clause}{limit_clause};"
+        limit_suffix = f"\nLIMIT {limit_val}" if (limit_val and db_type not in ('mssql', 'sqlserver')) else ""
+        where_str = f"\nWHERE {' AND '.join(where_conds)}" if where_conds else ""
 
-        explanation = f"Calculates {agg_func or 'all records'} from {', '.join(detected_tables)}"
-        if filters:
-            explanation += f" where {', '.join(filters)}."
-        else:
-            explanation += "."
+        sql = f"SELECT {top_clause}{select_clause}\n{from_clause}{where_str}{order_clause}{limit_suffix};"
+
+        explanation = f"Retrieves {agg_func or 'matching records'} from table '{primary_table}'"
+        if len(detected_tables) > 1:
+            explanation += f" joined with '{detected_tables[1]}'"
+        if where_conds:
+            explanation += f" filtering by {' and '.join(where_conds)}"
+        explanation += "."
 
         return {
             "sql": sql,
-            "explanation": f"[Rule-Based Fallback Mode] {explanation}",
+            "explanation": explanation,
             "tables_used": detected_tables,
-            "optimization_tips": ["Ensure indexes exist on filter columns and join foreign keys for peak performance."],
-            "alternative_approaches": ["Configure your OpenAI API key in `.env` to leverage AI-powered advanced SQL parsing and context understanding."]
+            "optimization_tips": [f"Ensure an index exists on {primary_table}({primary_cols[0] if primary_cols else 'id'}) for optimal lookup speed."],
+            "alternative_approaches": ["Add specific WHERE filters or SELECT column projections to further refine your result set."]
         }
 

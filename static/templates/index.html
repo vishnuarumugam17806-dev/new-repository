@@ -1,146 +1,201 @@
 {% extends 'base.html' %}
-{% block title %}SMART DB — Automated Database Design &amp; Schema Generator{% endblock %}
-{% block meta_desc %}Generate production-ready SQL schemas, ER diagrams, data dictionaries and API docs from plain English requirements.{% endblock %}
+{% block title %}SMART DB — Universal Multi-Database Design &amp; Platform Engine{% endblock %}
+{% block meta_desc %}Design, generate, explore, and manage SQL Server, MySQL, Oracle, MongoDB, and Excel database platforms automatically.{% endblock %}
 
 {% block content %}
-<!-- ── Clean Hero Section with Hero Banner Illustration ─────────────────── -->
-<section class="py-5 mb-5 bg-light-section rounded-3 px-4">
+<!-- ── Hero Section ────────────────────────────────────────────────────────── -->
+<section class="py-5 mb-5 rounded-4 px-4 bg-white border shadow-md">
     <div class="row align-items-center g-4">
         <!-- Left Column: Headlines & Call to Actions -->
-        <div class="col-lg-6">
+        <div class="col-lg-7">
             <div class="d-inline-flex align-items-center gap-2 mb-3">
-                <span class="badge-blue"><i class="fa-solid fa-bolt me-1 text-primary"></i> AI Powered Engine</span>
-                <span class="badge-green"><i class="fa-solid fa-check me-1 text-success"></i> Production Ready DDL</span>
+                <span class="badge-purple"><i class="fa-solid fa-bolt me-1 text-icon-purple"></i> Multi-Database Engine</span>
+                <span class="badge-green"><i class="fa-solid fa-check me-1 text-icon-green"></i> Real DB Execution &amp; Grid Editing</span>
             </div>
 
             <h1 class="display-5 fw-bold mb-3 text-dark">
-                Automatic Database Design &amp; Schema Generator
+                Universal Multi-Database Platform &amp; Design Engine
             </h1>
 
-            <p class="lead-text mb-4">
-                Describe your system requirements in plain English. SMART DB automatically constructs
-                <strong class="text-primary">3NF normalized SQL DDL scripts</strong>,
-                <strong class="text-primary">interactive ER diagrams</strong>,
-                <strong class="text-primary">data dictionaries</strong>, and
-                <strong class="text-primary">REST API documentation</strong>.
+            <p class="lead text-secondary mb-4" style="font-size: 1.15rem; line-height: 1.7;">
+                Build, explore, and manage databases across <strong class="text-purple">SQL Server</strong>, <strong class="text-cyan">MySQL</strong>, <strong class="text-danger">Oracle</strong>, <strong class="text-success">MongoDB</strong>, and <strong class="text-warning">Excel Workbooks</strong>. Dynamic grid editing, NLP data operations, and automated AI schema generation.
             </p>
 
-            <!-- Sample Requirement Input Box -->
-            <div class="card p-3 mb-4 border-1 shadow-sm bg-white" style="max-width:540px;">
-                <div class="d-flex align-items-center gap-2 text-muted small fw-semibold mb-2">
-                    <i class="fa-solid fa-terminal text-primary"></i> Example Prompt Input:
+            <!-- Prompt Typewriter Preview Box -->
+            <div class="card p-3 mb-4 bg-light border shadow-sm" style="max-width:580px;">
+                <div class="d-flex align-items-center gap-2 text-purple small fw-bold mb-2">
+                    <i class="fa-solid fa-terminal me-1"></i> Interactive Prompt Builder:
                 </div>
-                <div id="typewriter-text" class="font-monospace text-primary fw-medium small" style="min-height:2.2em; word-break:break-word;"></div>
+                <div id="typewriter-text" class="font-monospace text-dark fw-semibold small" style="min-height:2.4em; word-break:break-word;"></div>
             </div>
 
             <div class="d-flex gap-3 flex-wrap">
-                <a href="/create" class="btn btn-purple btn-lg px-4">
-                    <i class="fa-solid fa-wand-magic-sparkles me-2"></i> Generate Schema Now
+                <a href="/create" class="btn btn-purple btn-lg px-4 fw-semibold">
+                    <i class="fa-solid fa-wand-magic-sparkles me-2"></i> Launch Database Creator
                 </a>
-                <a href="/templates" class="btn btn-outline-primary btn-lg px-4">
-                    <i class="fa-solid fa-layer-group me-2 text-icon-indigo"></i> Pre-built Templates
+                <a href="/crud" class="btn btn-outline-cyan btn-lg px-4 fw-semibold">
+                    <i class="fa-solid fa-database me-2"></i> Universal Data Explorer
                 </a>
             </div>
         </div>
 
-        <!-- Right Column: Visual Picture -->
-        <div class="col-lg-6 text-center">
-            <div class="p-2 bg-white rounded-3 shadow-sm border">
-                <img src="{{ url_for('static', filename='images/hero_db_banner.png') }}" alt="Automated Database Design Platform Visual" class="img-fluid rounded-3" style="max-height: 440px; object-fit: contain;">
+        <!-- Right Column: Hero Visual Image -->
+        <div class="col-lg-5 text-center">
+            <div class="p-2 bg-white rounded-4 shadow-sm border">
+                <img src="{{ url_for('static', filename='images/hero_db_banner.png') }}" alt="Multi-Database Engineering Platform Visual" class="img-fluid rounded-3" style="max-height: 420px; object-fit: contain;">
             </div>
         </div>
     </div>
 </section>
 
-<!-- ── System Statistics Cards ─────────────────────────────────────────── -->
+<!-- ── Supported Data Platforms Specification Cards (Requirement 3 & 4) ── -->
+<section class="mb-5">
+    <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
+        <div>
+            <h2 class="fw-bold text-dark mb-1"><i class="fa-solid fa-layer-group text-icon-purple me-2"></i>Supported Database Platforms</h2>
+            <p class="text-secondary mb-0">Native database execution, direct grid editing, schema generator, and NLP data operations</p>
+        </div>
+        <a href="/crud" class="btn btn-outline-cyan btn-sm fw-semibold">
+            Open Data Explorer <i class="fa-solid fa-arrow-right ms-1"></i>
+        </a>
+    </div>
+
+    <div class="row g-3">
+        <!-- SQL SERVER -->
+        <div class="col-md-4 col-sm-6">
+            <div class="spec-card card h-100 p-3 bg-white border rounded-3">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <div class="icon-box icon-box-md bg-purple text-white rounded-circle"><i class="fa-solid fa-database"></i></div>
+                    <span class="badge-purple">SQL SERVER</span>
+                </div>
+                <h5 class="fw-bold text-dark mb-1">Microsoft SQL Server</h5>
+                <p class="text-secondary small mb-3">Enterprise relational engine with T-SQL, identity keys, stored procedures, and primary key relationships.</p>
+                <div class="d-flex align-items-center justify-content-between border-top pt-2">
+                    <span class="small text-purple fw-semibold"><i class="fa-solid fa-check me-1"></i> T-SQL DDL &amp; Grid Edit</span>
+                    <a href="/create?db_type=sqlserver" class="btn btn-purple btn-sm py-1 px-3">Build DB</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- MYSQL -->
+        <div class="col-md-4 col-sm-6">
+            <div class="spec-card card h-100 p-3 bg-white border rounded-3">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <div class="icon-box icon-box-md bg-info text-white rounded-circle"><i class="fa-solid fa-server"></i></div>
+                    <span class="badge-blue">MYSQL</span>
+                </div>
+                <h5 class="fw-bold text-dark mb-1">MySQL Engine</h5>
+                <p class="text-secondary small mb-3">High-performance open-source relational engine with AUTO_INCREMENT, InnoDB, and UTF8MB4.</p>
+                <div class="d-flex align-items-center justify-content-between border-top pt-2">
+                    <span class="small text-cyan fw-semibold"><i class="fa-solid fa-check me-1"></i> MySQL DDL &amp; Grid Edit</span>
+                    <a href="/create?db_type=mysql" class="btn btn-outline-purple btn-sm py-1 px-3">Build DB</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- ORACLE -->
+        <div class="col-md-4 col-sm-6">
+            <div class="spec-card card h-100 p-3 bg-white border rounded-3">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <div class="icon-box icon-box-md bg-danger text-white rounded-circle"><i class="fa-solid fa-building-columns"></i></div>
+                    <span class="badge bg-danger-subtle text-danger border border-danger">ORACLE</span>
+                </div>
+                <h5 class="fw-bold text-dark mb-1">Oracle Database</h5>
+                <p class="text-secondary small mb-3">Enterprise PL/SQL relational platform with robust schema management and data dictionary views.</p>
+                <div class="d-flex align-items-center justify-content-between border-top pt-2">
+                    <span class="small text-danger fw-semibold"><i class="fa-solid fa-check me-1"></i> PL/SQL &amp; Schemas</span>
+                    <a href="/create?db_type=oracle" class="btn btn-outline-purple btn-sm py-1 px-3">Build DB</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- MONGODB -->
+        <div class="col-md-4 col-sm-6">
+            <div class="spec-card card h-100 p-3 bg-white border rounded-3">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <div class="icon-box icon-box-md bg-success text-white rounded-circle"><i class="fa-solid fa-leaf"></i></div>
+                    <span class="badge-green">MONGODB</span>
+                </div>
+                <h5 class="fw-bold text-dark mb-1">MongoDB (NoSQL)</h5>
+                <p class="text-secondary small mb-3">Flexible BSON document store with collections, nested objects, arrays, and BSON JSON editing.</p>
+                <div class="d-flex align-items-center justify-content-between border-top pt-2">
+                    <span class="small text-success fw-semibold"><i class="fa-solid fa-check me-1"></i> BSON Docs &amp; Collections</span>
+                    <a href="/create?db_type=mongodb" class="btn btn-outline-purple btn-sm py-1 px-3">Build DB</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- EXCEL -->
+        <div class="col-md-4 col-sm-6">
+            <div class="spec-card card h-100 p-3 bg-white border rounded-3">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <div class="icon-box icon-box-md bg-warning text-dark rounded-circle"><i class="fa-solid fa-file-excel"></i></div>
+                    <span class="badge-yellow">EXCEL</span>
+                </div>
+                <h5 class="fw-bold text-dark mb-1">Excel &amp; Workbooks</h5>
+                <p class="text-secondary small mb-3">Spreadsheet workspace engine with multiple worksheets, openpyxl styling, formulas, and CSV import.</p>
+                <div class="d-flex align-items-center justify-content-between border-top pt-2">
+                    <span class="small text-warning fw-semibold"><i class="fa-solid fa-check me-1"></i> Worksheets &amp; Cell Grid</span>
+                    <a href="/create?db_type=excel" class="btn btn-outline-purple btn-sm py-1 px-3">Build DB</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ── System Performance Statistics ──────────────────────────────────── -->
 <section class="row g-3 mb-5">
     <div class="col-6 col-md-3">
-        <div class="stat-card stat-card-blue">
+        <div class="stat-card">
             <div class="stat-icon text-icon-blue"><i class="fa-solid fa-database"></i></div>
-            <div class="stat-number" id="stat-schemas">{{ total_schemas }}</div>
-            <div class="stat-label">Schemas Generated</div>
+            <div class="stat-number">{{ total_schemas }}</div>
+            <div class="stat-label">Databases Created</div>
         </div>
     </div>
     <div class="col-6 col-md-3">
-        <div class="stat-card stat-card-green">
+        <div class="stat-card">
             <div class="stat-icon text-icon-green"><i class="fa-solid fa-file-arrow-down"></i></div>
-            <div class="stat-number" id="stat-downloads">{{ total_downloads }}</div>
-            <div class="stat-label">Total Downloads</div>
+            <div class="stat-number text-icon-green">{{ total_downloads }}</div>
+            <div class="stat-label">Total Exports</div>
         </div>
     </div>
     <div class="col-6 col-md-3">
-        <div class="stat-card stat-card-purple">
+        <div class="stat-card">
             <div class="stat-icon text-icon-purple"><i class="fa-solid fa-microchip"></i></div>
-            <div class="stat-number text-icon-purple">
-                {% if ai_enabled %}ACTIVE{% else %}ONLINE{% endif %}
-            </div>
-            <div class="stat-label">AI Engine Status</div>
+            <div class="stat-number text-purple">ACTIVE</div>
+            <div class="stat-label">AI Engine Engine</div>
         </div>
     </div>
     <div class="col-6 col-md-3">
-        <div class="stat-card stat-card-cyan">
-            <div class="stat-icon text-icon-cyan"><i class="fa-solid fa-server"></i></div>
-            <div class="stat-number">4</div>
-            <div class="stat-label">Supported RDBMS</div>
+        <div class="stat-card">
+            <div class="stat-icon text-icon-cyan"><i class="fa-solid fa-layer-group"></i></div>
+            <div class="stat-number text-cyan">5</div>
+            <div class="stat-label">Supported DB Engines</div>
         </div>
-    </div>
-</section>
-
-<!-- ── How It Works Step Cards ───────────────────────────────────────────── -->
-<section class="mb-5">
-    <div class="text-center mb-4">
-        <h2 class="fw-bold">How It Works</h2>
-        <p class="text-secondary">Streamlined 5-step workflow from plain English text to deployed database</p>
-    </div>
-    <div class="row g-3">
-        {% set steps = [
-            ('1', 'fa-pen-to-square', 'Describe Requirements', 'Enter your project details in simple sentences without needing complex SQL knowledge.', 'badge-green'),
-            ('2', 'fa-microchip', 'AI Entity Extraction', 'Entity and attribute extraction maps business logic into structured data models.', 'badge-purple'),
-            ('3', 'fa-sitemap', '3NF Normalization', 'Third Normal Form (3NF) relational tables are automatically constructed with PKs and FKs.', 'badge-yellow'),
-            ('4', 'fa-diagram-project', 'Diagrams & Docs', 'Auto-generated Mermaid ER diagrams, data dictionary tables, and API docs.', 'badge-blue'),
-            ('5', 'fa-cloud-arrow-up', 'One-Click Deploy', 'Direct execution on MS SQL Server 2022 or export script for SQLite, MySQL & Postgres.', 'badge-green'),
-        ] %}
-        {% for num, icon, title, desc, bstyle in steps %}
-        <div class="col-md-{% if loop.index <= 3 %}4{% else %}6{% endif %}">
-            <div class="card h-100 p-3 shadow-sm">
-                <div class="d-flex align-items-center gap-3 mb-3">
-                    <div class="step-number-badge step-number-badge-{{ num }}"><i class="fa-solid {{ icon }}"></i></div>
-                    <div>
-                        <span class="{{ bstyle }} me-1">Step {{ num }}</span>
-                        <h5 class="fw-bold mb-0 d-inline-block fs-6">{{ title }}</h5>
-                    </div>
-                </div>
-                <p class="text-secondary mb-0 small">{{ desc }}</p>
-            </div>
-        </div>
-        {% endfor %}
     </div>
 </section>
 
 <!-- ── Core Features Grid ────────────────────────────────────────────────── -->
 <section class="mb-5">
     <div class="text-center mb-4">
-        <h2 class="fw-bold">Core Features</h2>
-        <p class="text-secondary">Comprehensive database tools built for maximum clarity and productivity</p>
+        <h2 class="fw-bold text-dark mb-1">Platform Core Capabilities</h2>
+        <p class="text-secondary">Comprehensive multi-database platform features built for maximum productivity</p>
     </div>
     <div class="row g-3">
         {% set features = [
-            ('fa-diagram-project', 'ER Diagram Visualizer', 'Interactive ER diagrams generated instantly with relationship lines and cardinality.', 'icon-box-primary'),
-            ('fa-file-code', 'Multi-RDBMS Export', 'Clean SQL DDL syntax for MS SQL Server, PostgreSQL, MySQL, and SQLite.', 'icon-box-teal'),
-            ('fa-book', 'Data Dictionary Generator', 'Complete documentation of table attributes, column types, constraints, and business rules.', 'icon-box-indigo'),
-            ('fa-database', 'SQL Server Integration', 'Deploy and manage live SQL Server tables directly through the dynamic CRUD interface.', 'icon-box-orange'),
-            ('fa-code', 'REST API Reference', 'Auto-generated API documentation for web and mobile backend development.', 'icon-box-cyan'),
-            ('fa-comments', 'Natural Language Query AI', 'Translate plain English questions into executable SQL queries with explanations.', 'icon-box-purple'),
-            ('fa-boxes-stacked', 'Schema Marketplace', 'Browse, search, rate, and clone existing database designs from the community catalog.', 'icon-box-success'),
-            ('fa-table-list', 'Sample Data Generation', 'Automatic generation of mock INSERT statements for unit testing and demonstration.', 'icon-box-warning'),
-            ('fa-chart-line', 'Usage Analytics', 'Track schema activity, download counts, and industry category distributions.', 'icon-box-pink'),
+            ('fa-folder-tree', 'Universal Data Explorer', 'Hierarchical tree view of SQL Server, MySQL, Oracle, MongoDB, and Excel workbooks.', 'text-purple'),
+            ('fa-pen-to-square', 'Direct Grid & Document Editing', 'Inline cell editing, row additions, deletions, and MongoDB BSON document updates.', 'text-cyan'),
+            ('fa-wand-magic-sparkles', 'NLP Data Operations', 'Natural language commands ("Change Arun phone to 9876543210") with diff previews.', 'text-warning'),
+            ('fa-file-import', 'Universal File Import', 'Upload .csv, .xlsx, .json with auto-column mapping, duplicate detection, and bulk import.', 'text-success'),
+            ('fa-chart-pie', 'Dynamic Visual Analytics', 'Auto-generated Chart.js visualizations (Bar, Line, Pie, Doughnut, Area, KPIs).', 'text-info'),
+            ('fa-comments', 'Platform-Aware AI Query Assistant', 'Translate natural language questions into SQL Server, MySQL, Oracle, PyMongo, or pandas.', 'text-purple'),
         ] %}
-        {% for icon, title, desc, ibox in features %}
+        {% for icon, title, desc, icon_color in features %}
         <div class="col-md-4">
-            <div class="card h-100 p-3 shadow-sm">
+            <div class="card h-100 p-3 bg-white border">
                 <div class="d-flex align-items-center gap-3 mb-2">
-                    <div class="icon-box icon-box-sm {{ ibox }}"><i class="fa-solid {{ icon }}"></i></div>
-                    <h6 class="fw-bold mb-0 text-dark">{{ title }}</h6>
+                    <div class="fs-4 {{ icon_color }}"><i class="fa-solid {{ icon }}"></i></div>
+                    <h6 class="fw-bold text-dark mb-0">{{ title }}</h6>
                 </div>
                 <p class="text-secondary mb-0 small">{{ desc }}</p>
             </div>
@@ -149,65 +204,24 @@
     </div>
 </section>
 
-<!-- ── Pre-built Industry Templates ───────────────────────────────────────── -->
-<section class="mb-5">
-    <div class="d-flex align-items-center justify-content-between mb-4">
-        <div>
-            <h2 class="fw-bold mb-1">Pre-built Templates</h2>
-            <p class="text-secondary mb-0">Production-ready database designs for standard industry applications</p>
-        </div>
-        <a href="/templates" class="btn btn-outline-purple btn-sm">
-            View All Templates <i class="fa-solid fa-arrow-right ms-1"></i>
-        </a>
-    </div>
-    <div class="row g-3">
-        {% set tmpl_list = [
-            ('fa-hospital','Hospital Management','Healthcare','patients, doctors, appointments, medical records, billing', 'icon-box-danger', 'badge-yellow'),
-            ('fa-cart-shopping','E-Commerce System','E-commerce','products, categories, customers, orders, payments', 'icon-box-purple', 'badge-purple'),
-            ('fa-graduation-cap','University LMS','Education','students, faculty, courses, enrollments, grades', 'icon-box-primary', 'badge-blue'),
-            ('fa-users-gear','HR & Payroll System','HR','employees, departments, payroll, leave requests', 'icon-box-teal', 'badge-green'),
-            ('fa-piggy-bank','Banking Application','Finance','accounts, customers, transactions, loans', 'icon-box-warning', 'badge-yellow'),
-            ('fa-book-bookmark','Library Catalog','Library','books, authors, members, borrowings, fines', 'icon-box-cyan', 'badge-blue'),
-        ] %}
-        {% for icon, name, cat, desc, ibox, bstyle in tmpl_list %}
-        <div class="col-md-4 col-sm-6">
-            <div class="card h-100 p-3 shadow-sm">
-                <div class="d-flex align-items-center justify-content-between mb-2">
-                    <div class="d-flex align-items-center gap-2">
-                        <div class="icon-box icon-box-sm {{ ibox }}"><i class="fa-solid {{ icon }}"></i></div>
-                        <span class="{{ bstyle }}">{{ cat }}</span>
-                    </div>
-                    <a href="/templates?category={{ cat }}" class="btn btn-outline-secondary btn-sm py-1 px-2" style="font-size:0.78rem;">
-                        <i class="fa-solid fa-folder-open me-1 text-icon-amber"></i> Open
-                    </a>
-                </div>
-                <h6 class="fw-bold text-dark mb-1">{{ name }}</h6>
-                <p class="text-muted small mb-0">{{ desc }}</p>
-            </div>
-        </div>
-        {% endfor %}
-    </div>
-</section>
-
-<!-- ── Simple Call-To-Action Banner ───────────────────────────────────────── -->
-<section class="text-center py-5 px-3 bg-light-section rounded-3 mb-4">
-    <h3 class="fw-bold mb-2 text-dark">Start Designing Your Database Schema</h3>
-    <p class="text-secondary mb-3">Create your database model in seconds with automated AI assistance.</p>
-    <a href="/create" class="btn btn-purple btn-lg px-5">
-        <i class="fa-solid fa-wand-magic-sparkles me-2"></i> Create New Database Project
+<!-- ── Call-To-Action Banner ───────────────────────────────────────── -->
+<section class="text-center py-5 px-4 bg-white border border-purple rounded-4 mb-4 shadow-md">
+    <h3 class="fw-bold mb-2 text-dark">Start Building Your Multi-Database Platform</h3>
+    <p class="text-secondary mb-4">Create, explore, import, and query databases in seconds with SMART DB AI automation.</p>
+    <a href="/create" class="btn btn-purple btn-lg px-5 fw-semibold">
+        <i class="fa-solid fa-wand-magic-sparkles me-2"></i> Launch Platform Creator
     </a>
 </section>
-
 {% endblock %}
 
 {% block extra_scripts %}
 <script>
 const phrases = [
-    "Build a Hospital Management System with patients, doctors, appointments and billing...",
-    "Create an E-Commerce platform with products, inventory, customers, orders and payments...",
-    "Design a University LMS with students, faculty, courses, enrollments and grades...",
-    "Generate an HR system with employees, departments, payroll and leave tracking...",
-    "Create a Library System with books, authors, members, borrowings and fines..."
+    "Build a Hospital Management System with Patients, Doctors, Appointments and Billing...",
+    "Create an E-Commerce platform with Products, Inventory, Customers, Orders and Payments...",
+    "Design a University LMS with Students, Faculty, Courses, Enrollments and Grades...",
+    "Generate an HR system with Employees, Departments, Payroll and Leave Tracking...",
+    "Create a Library System with Books, Authors, Members, Borrowings and Fines..."
 ];
 let pi = 0, ci = 0, deleting = false;
 const el = document.getElementById('typewriter-text');

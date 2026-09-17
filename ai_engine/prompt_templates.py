@@ -259,28 +259,37 @@ Return ONLY valid JSON with this exact structure:
 }}
 """
 
-# ── Phase 9: NL to SQL ────────────────────────────────────────────────────────
-NL_TO_SQL_PROMPT = """You are an expert SQL developer.
+# ── Phase 9: Multi-Database NL Query Assistant Prompt ──────────────────────────
+NL_TO_SQL_PROMPT = """You are an expert Senior Database Architect specializing in SQL Server, MySQL, Oracle, MongoDB, and Excel Automation.
 
-Convert the following natural language query to SQL for a {db_type} database.
+Convert the user's natural language question or requirement into an accurate query or command tailored specifically for the target database specification ({db_type}).
 
-DATABASE SCHEMA:
+TARGET DATABASE PLATFORM: {db_type}
+DATABASE SCHEMA / METADATA CONTEXT:
 {schema_context}
 
-USER QUERY: {user_query}
+USER REQUIREMENT / QUESTION:
+{user_query}
 
-Return ONLY valid JSON:
+Return ONLY valid JSON with this exact structure:
 {{
-  "sql": "string (the SQL query)",
-  "explanation": "string (plain English explanation of what the query does)",
-  "tables_used": ["string"],
-  "optimization_tips": ["string (any tips to make this faster)"],
-  "alternative_approaches": ["string (other ways to write this query)"]
+  "sql": "string (the generated query/command syntax tailored for {db_type})",
+  "explanation": "string (detailed explanation of how the query works or conceptual answer to user's doubt)",
+  "tables_used": ["string (list of tables/collections/sheets referenced)"],
+  "optimization_tips": ["string (indexing or performance suggestions for {db_type})"],
+  "alternative_approaches": ["string (alternative syntax or approaches)"]
 }}
 
-Rules:
-- Use table and column names exactly as defined in the schema
-- Add appropriate JOINs where needed
-- Include ORDER BY, LIMIT, and WHERE clauses as appropriate
-- Use {db_type}-compatible syntax
+Rules per platform specification:
+1. SQL Server:
+   - Use T-SQL dialect syntax with bracketed identifiers `[Table].[Column]`, `TOP N`, `GETDATE()`, `ISNULL()`.
+2. MySQL:
+   - Use MySQL dialect syntax with backtick identifiers `` `Table`.`Column` ``, `LIMIT N`, `NOW()`, `IFNULL()`.
+3. Oracle:
+   - Use Oracle PL/SQL dialect syntax with uppercase double quote identifiers `"TABLE"."COLUMN"`, `FETCH NEXT N ROWS ONLY`, `SYSDATE`, `NVL()`.
+4. MongoDB:
+   - Generate PyMongo or MongoDB shell query filter/aggregation pipeline JSON string (e.g. `db.collection.find({"age": {"$gt": 50}})` or `[{"$match": {...}}, {"$group": {...}}]`).
+5. Excel:
+   - Generate Python pandas / openpyxl expression snippet (e.g. `df[df['age'] > 50]`).
 """
+

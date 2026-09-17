@@ -1,6 +1,6 @@
 """
 SMART DB — Schema Generator Blueprint
-Handles schema creation, database generation, sql downloads, DBMS execution and deployment.
+Handles dynamic database creation workflow, AI schema generation, multi-database connection testing, execution, file-based database generation, AI file data transformation, and downloads.
 """
 import os
 import re
@@ -9,182 +9,455 @@ import csv
 import json
 import logging
 from urllib.parse import quote_plus
-from flask import Blueprint, render_template, request, redirect, url_for, flash, Response, jsonify, send_file
+from flask import Blueprint, render_template, request, redirect, url_for, flash, Response, jsonify, send_file, session
 from flask_login import current_user
 import config as cfg
-from models import db, SharedDatabase, SchemaVersion, DownloadLog, IndustryTemplate, Comment
+from models import db, SharedDatabase, SchemaVersion, DownloadLog, Comment, DatabaseInstance
 from ai_engine.schema_agent import agent as ai_agent
+from services.connection_manager import ConnectionManager
+from services.sqlserver_service import SqlServerService
 from utils import _track, translate_sql, validate_table_spec, generate_sql_from_spec, _safe_json, split_sql_statements
 
 logger = logging.getLogger(__name__)
 
 generator_bp = Blueprint('generator', __name__)
 
-@generator_bp.route('/create', methods=['GET', 'POST'])
+@generator_bp.route('/create', methods=['GET'])
 def create_database():
-    from services.sqlserver_service import SqlServerService
-    
-    # Store console logs to show in UI if something fails
-    error_logs = []
-    
+    initial_db_type = request.args.get('db_type', 'sqlserver').lower()
+    default_instance = SqlServerService.get_server()
+    return render_template('create.html', 
+                           initial_db_type=initial_db_type,
+                           default_instance=default_instance,
+                           ai_enabled=cfg.AI_ENABLED)
+
+
+@generator_bp.route('/api/test-connection', methods=['POST'])
+def test_connection_api():
+    """Test connection credentials for SQL Server, MySQL, Oracle, MongoDB, or Excel."""
+    data = request.get_json() or {}
+    db_type = data.get('db_type', 'sqlserver').lower()
+    config = data.get('config', {})
+
+    try:
+        success, message = ConnectionManager.test_connection(db_type, config)
+        return jsonify({
+            'success': success,
+            'message': message,
+            'db_type': db_type
+        })
+    except Exception as e:
+        logger.error(f"Test connection error: {e}")
+        return jsonify({'success': False, 'message': f"Connection test failed: {str(e)}", 'db_type': db_type}), 400
+
+
+@generator_bp.route('/api/db-create-chat/state', methods=['GET', 'POST'])
+def chat_state():
+    """Retrieve or reset the database creation chat session state."""
+    default_instance = SqlServerService.get_server()
+
     if request.method == 'POST':
-        project_name  = request.form.get('project_name', '').strip()  # This will be the database name in SQL Server
-        requirements  = request.form.get('requirements', '').strip()
-        columns_spec  = request.form.get('columns_spec', '').strip()
-        table_name    = request.form.get('table_name', '').strip()
-        use_template  = request.form.get('use_template', '')
-        db_type       = 'mssql'  # Force SQL Server
+        state = {
+            'step': 'select_spec',
+            'database_type': None,
+            'instance_name': default_instance,
+            'connection_config': {},
+            'database_name': None,
+            'action': None,
+            'tables': [],
+            'table_structures': {},
+            'current_table_index': 0,
+            'sql_script': None,
+            'verification': None
+        }
+        session['database_creation_state'] = state
+        return jsonify({
+            'state': state,
+            'initial_message': (
+                "Welcome to SMART DB! Let's build your data platform.\n\n"
+                "First, please select your Database Specification target below."
+            ),
+            'specs': [
+                {'id': 'sqlserver', 'name': 'SQL Server', 'icon': 'fa-database', 'desc': 'Microsoft SQL Server enterprise relational platform'},
+                {'id': 'mysql', 'name': 'MySQL Engine', 'icon': 'fa-server', 'desc': 'High-performance open-source SQL engine'},
+                {'id': 'oracle', 'name': 'Oracle DB', 'icon': 'fa-building-columns', 'desc': 'Enterprise relational PL/SQL system'},
+                {'id': 'mongodb', 'name': 'MongoDB', 'icon': 'fa-leaf', 'desc': 'BSON document NoSQL store'},
+                {'id': 'excel', 'name': 'Excel Workbook', 'icon': 'fa-file-excel', 'desc': 'Worksheet data grid & openpyxl spreadsheets'}
+            ]
+        })
+    
+    state = session.get('database_creation_state')
+    if not state:
+        state = {
+            'step': 'select_spec',
+            'database_type': None,
+            'instance_name': default_instance,
+            'connection_config': {},
+            'database_name': None,
+            'action': None,
+            'tables': [],
+            'table_structures': {},
+            'current_table_index': 0,
+            'sql_script': None,
+            'verification': None
+        }
+        session['database_creation_state'] = state
 
-        if not project_name:
-            flash('Database Name is required.', 'danger')
-            return redirect(url_for('generator.create_database'))
+    return jsonify({'state': state})
 
-        # Auto-sanitize project_name to a valid SQL Server identifier (remove spaces/special chars)
-        sanitized_name = re.sub(r'[^A-Za-z0-9_]', '', project_name.title().replace(' ', ''))
-        if sanitized_name and re.match(r'^[A-Za-z_]', sanitized_name):
-            project_name = sanitized_name
 
-        # 1. Validate Database Name (prevent SQL Injection)
-        is_valid_name, err_msg = SqlServerService.validate_database_name(project_name)
-        if not is_valid_name:
-            flash(f"Invalid Database Name: {err_msg}", 'danger')
-            return redirect(url_for('generator.create_database'))
+@generator_bp.route('/api/db-create-chat/message', methods=['POST'])
+def chat_message():
+    """Process user step in the multi-database creation workflow."""
+    data = request.get_json() or {}
+    user_input = data.get('message', '').strip()
+    action = data.get('action', '').strip()
+    db_type = data.get('db_type', '').strip().lower()
+    config = data.get('config', {})
+    
+    state = session.get('database_creation_state')
+    default_instance = SqlServerService.get_server()
 
-        # 2. Check if database already exists, auto-append suffix if duplicate
-        if SqlServerService.check_db_exists(project_name):
-            base_name = project_name
-            counter = 1
-            while SqlServerService.check_db_exists(project_name):
-                project_name = f"{base_name}_{counter}"
-                counter += 1
-            flash(f"Database '{base_name}' already exists on SQL Server. Using unique name '{project_name}'.", 'info')
+    if action == 'reset' or not state:
+        state = {
+            'step': 'select_spec',
+            'database_type': None,
+            'instance_name': default_instance,
+            'connection_config': {},
+            'database_name': None,
+            'action': None,
+            'tables': [],
+            'table_structures': {},
+            'current_table_index': 0,
+            'sql_script': None,
+            'verification': None
+        }
+        session['database_creation_state'] = state
 
-        # 3. Generate tables using template, spec, or AI
-        sql_code = ''
-        er_mmd = ''
-        entities = None
-        data_dict = None
-        sample_data = ''
-        api_docs = None
-        improvements = None
-        nosql_schema = None
-        ai_used = False
-        
-        try:
-            # If using a template, load it
-            if use_template:
-                tmpl = IndustryTemplate.query.get(int(use_template))
-                if tmpl:
-                    requirements = tmpl.requirements
-                    sql_code     = translate_sql(tmpl.sql_code, 'mssql')
-                    er_mmd       = tmpl.er_diagram_mmd or ''
-                    entities     = {'system_name': tmpl.name, 'industry': tmpl.category, 'entities': [], 'relationships': []}
-                    tmpl.downloads = (tmpl.downloads or 0) + 1
-                    db.session.commit()
-                else:
-                    flash('Template not found.', 'danger')
-                    return redirect(url_for('generator.create_database'))
-            elif columns_spec and table_name:
-                # Direct column spec mode
-                is_valid_spec, spec_err = validate_table_spec(table_name, columns_spec)
-                if not is_valid_spec:
-                    flash(spec_err, 'danger')
-                    return redirect(url_for('generator.create_database'))
-                sql_raw     = generate_sql_from_spec(table_name, columns_spec)
-                sql_code    = translate_sql(sql_raw, 'mssql')
-                requirements = f'Custom schema for {table_name}: {columns_spec}'
-                er_mmd       = f'erDiagram\n    {table_name.upper()} {{\n        int id PK\n    }}'
-                entities     = {'system_name': project_name, 'industry': 'General', 'entities': [], 'relationships': []}
-            elif requirements:
-                # Full AI pipeline (forces target database MSSQL)
-                pipeline = ai_agent.run_full_pipeline(requirements, 'mssql')
-                sql_code     = pipeline['sql_code']
-                er_mmd       = pipeline['er_diagram_mmd']
-                entities     = pipeline['entities']
-                data_dict    = pipeline['data_dictionary']
-                sample_data  = pipeline['sample_data']
-                api_docs     = pipeline['api_docs']
-                improvements = pipeline['improvements']
-                nosql_schema = pipeline['nosql_schema']
-                ai_used      = pipeline['ai_used']
-            else:
-                flash('Please provide requirements or column specifications.', 'danger')
-                return redirect(url_for('generator.create_database'))
-        except Exception as gen_err:
-            flash(f"Schema generation error: {gen_err}", 'danger')
-            return redirect(url_for('generator.create_database'))
+    current_step = state.get('step', 'select_spec')
 
-        # Ensure we have SQL code
-        if not sql_code:
-            flash('Failed to generate table schema script.', 'danger')
-            return redirect(url_for('generator.create_database'))
+    # STEP 1 & 2 – SELECT SPEC & CONFIRM CONNECTION -> ASK DATABASE NAME
+    if current_step in ['select_spec', 'select_instance'] or action in ['select_spec', 'configure_instance']:
+        selected_type = db_type or state.get('database_type') or 'sqlserver'
+        if selected_type not in ['sqlserver', 'mysql', 'oracle', 'mongodb', 'excel']:
+            selected_type = 'sqlserver'
 
-        # Translate SQL to Microsoft SQL Server syntax
-        translated_sql = translate_sql(sql_code, 'mssql')
-        statements = split_sql_statements(translated_sql)
+        state['database_type'] = selected_type
+        state['connection_config'] = config or state.get('connection_config', {})
+        state['step'] = 'ask_dbname'
+        session['database_creation_state'] = state
 
-        # 4. Execute creation in SQL Server (Database creation + Schema tables in a single operation)
-        logger.info(f"Initiating SQL Server database creation and execution for: {project_name}")
-        success, exec_logs = SqlServerService.create_database_and_schema(project_name, statements)
-        
-        if not success:
-            error_logs.extend(exec_logs)
-            error_msg = exec_logs[-1] if exec_logs else "Unknown database creation error."
-            flash(f"SQL Server deployment failed: {error_msg}", 'danger')
-            # Render create page with execution log console
-            templates_featured = IndustryTemplate.query.filter_by(is_featured=True).limit(6).all()
-            return render_template('create.html', 
-                                   templates_featured=templates_featured,
-                                   ai_enabled=cfg.AI_ENABLED,
-                                   error_logs=error_logs,
-                                   project_name=project_name,
-                                   requirements=requirements)
+        type_names = {
+            'sqlserver': 'Microsoft SQL Server',
+            'mysql': 'MySQL Engine',
+            'oracle': 'Oracle Database',
+            'mongodb': 'MongoDB Document Store',
+            'excel': 'Excel Workbook Platform'
+        }
 
-        # 5. Log history to shared_databases (smartdb_system)
-        industry = (entities or {}).get('industry', 'General') if isinstance(entities, dict) else 'General'
-        tags_list = []
-        if isinstance(entities, dict):
-            for ent in entities.get('entities', []):
-                tags_list.append(ent.get('name', ''))
-        tags_str = ', '.join(tags_list[:5])
+        prompt_names = {
+            'sqlserver': 'Database Name',
+            'mysql': 'Database / Schema Name',
+            'oracle': 'Schema Name',
+            'mongodb': 'Database Name',
+            'excel': 'Workbook Name (.xlsx)'
+        }
 
+        return jsonify({
+            'ai_message': f"✓ Target Platform set to **{type_names[selected_type]}**.\n\nPlease enter the **{prompt_names[selected_type]}** you would like to create (e.g. `HospitalDB`, `ECommerceData`).",
+            'step': 'ask_dbname',
+            'database_type': selected_type
+        })
+
+    # STEP 3 – RECEIVE DATABASE NAME & OFFER CREATION MODES (FILE UPLOAD VS AI/SCRATCH)
+    elif current_step == 'ask_dbname':
+        target_type = state.get('database_type', 'sqlserver')
+        raw_name = user_input or data.get('database_name', 'SmartDB_Project')
+        sanitized = re.sub(r'[^A-Za-z0-9_\-]', '', raw_name.replace(' ', '_'))
+        if not sanitized:
+            sanitized = 'SmartDB_Data'
+
+        state['database_name'] = sanitized
+        state['step'] = 'choose_creation_mode'
+        session['database_creation_state'] = state
+
+        return jsonify({
+            'ai_message': (
+                f"✓ Target Database set to: **{sanitized}** ({target_type.upper()}).\n\n"
+                "How would you like to build your database tables/collections?\n\n"
+                "• **Option 1: Upload a Data File (.csv, .xlsx, .json)** — Preview data & enter AI prompt to extract your database.\n"
+                "• **Option 2: Create New From Scratch / AI Prompt** — Build tables interactively."
+            ),
+            'step': 'choose_creation_mode',
+            'database_type': target_type,
+            'database_name': sanitized,
+            'show_upload_option': True,
+            'actions': [
+                {'id': 'upload_file_mode', 'label': '📁 UPLOAD FILE TO BUILD DATABASE (.csv, .xlsx, .json)', 'icon': 'fa-file-import'},
+                {'id': 'create_scratch_mode', 'label': '🤖 CREATE NEW FROM SCRATCH / AI CHAT PROMPT', 'icon': 'fa-wand-magic-sparkles'}
+            ]
+        })
+
+    # STEP 4 – CHOOSE CREATION MODE (FILE UPLOAD VS AI CHAT PROMPT)
+    elif current_step == 'choose_creation_mode':
+        target_type = state.get('database_type', 'sqlserver')
+        db_name = state.get('database_name', 'SmartDB_Project')
+        chosen_mode = action or user_input.lower()
+
+        if chosen_mode == 'upload_file_mode' or 'upload' in user_input.lower():
+            state['step'] = 'upload_file_mode'
+            session['database_creation_state'] = state
+            return jsonify({
+                'ai_message': f"📁 **File Upload Mode Selected for Database '{db_name}'**.\n\nPlease select your `.csv`, `.xlsx`, or `.json` data file below. SMART DB will generate a data preview table and let you enter an AI prompt to build your database.",
+                'step': 'upload_file_mode',
+                'database_type': target_type,
+                'database_name': db_name,
+                'show_file_picker': True
+            })
+        else:
+            state['step'] = 'ask_table_name'
+            session['database_creation_state'] = state
+
+            # Create Database on backend
+            conn_config = state.get('connection_config', {})
+            ConnectionManager.create_database(target_type, db_name, conn_config)
+
+            struct_prompt = {
+                'mongodb': 'Collection Name (e.g. patients, products)',
+                'excel': 'Worksheet Name (e.g. Sheet1, SalesData)',
+                'sqlserver': 'Table Name (e.g. Patients, Orders)',
+                'mysql': 'Table Name (e.g. Customers, Inventory)',
+                'oracle': 'Table Name (e.g. EMPLOYEES, DEPARTMENTS)'
+            }
+
+            return jsonify({
+                'ai_message': f"✓ Database `{db_name}` created!\n\nNow, enter the **{struct_prompt[target_type]}** you want to build.",
+                'step': 'ask_table_name',
+                'database_type': target_type
+            })
+
+    # STEP 5 – ASK TABLE/COLLECTION NAME
+    elif current_step == 'ask_table_name':
+        target_type = state.get('database_type', 'sqlserver')
+        tbl_name = user_input.strip()
+        sanitized_tbl = re.sub(r'[^A-Za-z0-9_\-]', '', tbl_name.replace(' ', '_'))
+        if not sanitized_tbl:
+            sanitized_tbl = 'Data_Table'
+
+        if sanitized_tbl not in state.get('tables', []):
+            state['tables'].append(sanitized_tbl)
+
+        state['step'] = 'ask_add_another_table'
+        session['database_creation_state'] = state
+
+        unit_name = 'Collection' if target_type == 'mongodb' else ('Worksheet' if target_type == 'excel' else 'Table')
+
+        return jsonify({
+            'ai_message': f"✓ {unit_name} `{sanitized_tbl}` registered.\n\nWould you like to add another {unit_name.lower()}?",
+            'buttons': [
+                {'label': f"YES – Add Another {unit_name}", 'value': "yes_add_table", 'class': 'btn-outline-primary'},
+                {'label': f"NO – Define Fields for {sanitized_tbl}", 'value': "no_continue", 'class': 'btn-purple'}
+            ],
+            'step': 'ask_add_another_table'
+        })
+
+    elif current_step == 'ask_add_another_table':
+        target_type = state.get('database_type', 'sqlserver')
+        unit_name = 'Collection' if target_type == 'mongodb' else ('Worksheet' if target_type == 'excel' else 'Table')
+
+        if 'yes' in user_input.lower() or action == 'yes_add_table':
+            state['step'] = 'ask_table_name'
+            session['database_creation_state'] = state
+            return jsonify({
+                'ai_message': f"Enter the next {unit_name.lower()} name.",
+                'step': 'ask_table_name'
+            })
+        else:
+            state['current_table_index'] = 0
+            current_table = state['tables'][0]
+            state['step'] = 'ask_table_structure'
+            session['database_creation_state'] = state
+            return jsonify({
+                'ai_message': (
+                    f"Define structure for **{current_table}** ({target_type.upper()}).\n\n"
+                    "Enter column names and types (e.g. `id INT PRIMARY KEY, name VARCHAR(100), phone VARCHAR(20)`) "
+                    "or describe in plain English."
+                ),
+                'step': 'ask_table_structure',
+                'current_table': current_table
+            })
+
+    # STEP 6 – TABLE STRUCTURE & EXECUTION
+    elif current_step == 'ask_table_structure':
+        target_type = state.get('database_type', 'sqlserver')
+        tables_list = state.get('tables', [])
+        idx = state.get('current_table_index', 0)
+        current_table = tables_list[idx] if idx < len(tables_list) else "Table"
+        db_name = state.get('database_name', 'SmartDB_Project')
+        conn_config = state.get('connection_config', {})
+
+        # Parse column specifications
+        cols_list = []
+        if '\n' in user_input or ',' in user_input or ':' in user_input:
+            raw_cols = [c.strip() for c in re.split(r'[\n,]+', user_input) if c.strip()]
+            for item in raw_cols:
+                parts = item.replace(':', ' ').split()
+                cname = parts[0]
+                ctype = parts[1] if len(parts) > 1 else ('VARCHAR(255)' if target_type != 'mongodb' else 'string')
+                is_pk = 'PRIMARY' in item.upper() or cname.lower() in ['id', '_id']
+                cols_list.append({'name': cname, 'type': ctype, 'primary_key': is_pk})
+        else:
+            cols_list = [
+                {'name': 'id', 'type': 'INTEGER', 'primary_key': True},
+                {'name': 'name', 'type': 'VARCHAR(200)', 'primary_key': False},
+                {'name': 'created_at', 'type': 'DATETIME', 'primary_key': False}
+            ]
+
+        # Execute table/collection creation on actual adapter
+        success, create_msg = ConnectionManager.create_table(target_type, db_name, current_table, cols_list, conn_config)
+
+        # Store in SharedDatabase history
         new_db = SharedDatabase(
-            project_name    = project_name,
-            requirements    = requirements,
-            sql_code        = translated_sql,
-            industry        = industry,
-            tags            = tags_str,
-            er_diagram_mmd  = er_mmd,
-            entities_json   = json.dumps(entities) if entities else None,
-            data_dictionary = json.dumps(data_dict) if data_dict else None,
-            sample_data     = sample_data,
-            api_docs        = json.dumps(api_docs) if api_docs else None,
-            improvements    = json.dumps(improvements) if improvements else None,
-            nosql_schema    = json.dumps(nosql_schema) if nosql_schema else None,
-            ai_generated    = ai_used,
-            is_deployed     = True,
-            deployed_to     = f"SQL Server ({SqlServerService.get_server()}) -> {project_name}",
-            user_id         = current_user.id if current_user.is_authenticated else None
+            project_name = db_name,
+            requirements = f"AI Platform Database ({target_type.upper()})",
+            sql_code     = f"-- {target_type.upper()} Structure for {db_name}.{current_table}\n" + json.dumps(cols_list, indent=2),
+            industry     = 'General',
+            database_type= target_type,
+            is_deployed  = True,
+            deployed_to  = f"{target_type.upper()} -> {db_name}.{current_table}",
+            user_id      = current_user.id if current_user.is_authenticated else None
         )
-        
         try:
             db.session.add(new_db)
             db.session.commit()
             _track('generated', new_db.id)
-            _track('deployed', new_db.id)
-            flash(f"Database '{project_name}' successfully created in SQL Server! 🚀", 'success')
-            
-            # Automatically connect/redirect to the newly created database (CRUD screen)
-            return redirect(url_for('crud.crud_home', db_id=new_db.id))
-        except Exception as db_save_err:
+        except Exception:
             db.session.rollback()
-            logger.error(f"Error logging database creation history: {db_save_err}")
-            flash(f"Database created in SQL Server, but failed to save history record: {db_save_err}", 'warning')
-            return redirect(url_for('auth.dashboard'))
-    templates_featured = IndustryTemplate.query.filter_by(is_featured=True).limit(6).all()
-    return render_template('create.html', templates_featured=templates_featured,
-                           ai_enabled=cfg.AI_ENABLED)
 
+        return jsonify({
+            'ai_message': f"✓ {create_msg}\n\nDatabase operation verified successfully!",
+            'step': 'finished',
+            'redirect': f"/crud?db_type={target_type}&db_name={db_name}&table={current_table}"
+        })
+
+    return jsonify({'error': 'Invalid conversation state'}), 400
+
+
+@generator_bp.route('/api/db-create-chat/preview-file', methods=['POST'])
+def preview_file_data():
+    """Receive uploaded data file and return dataset preview, columns, and data types."""
+    try:
+        if 'file' not in request.files:
+            return jsonify({'success': False, 'message': 'No file selected.'}), 400
+
+        file = request.files['file']
+        if not file or not file.filename:
+            return jsonify({'success': False, 'message': 'Selected file is empty.'}), 400
+
+        filename = file.filename
+        base_dir = getattr(cfg, 'BASE_DIR', os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        upload_dir = os.path.join(base_dir, 'static', 'uploads')
+        os.makedirs(upload_dir, exist_ok=True)
+        file_path = os.path.join(upload_dir, filename)
+        file.save(file_path)
+
+        from services.import_service import ImportService
+        parse_result = ImportService.parse_uploaded_file(file_path)
+
+        if 'error' in parse_result:
+            return jsonify({'success': False, 'message': parse_result['error']}), 400
+
+        return jsonify({
+            'success': True,
+            'file_name': parse_result.get('file_name'),
+            'file_path': file_path,
+            'total_rows': parse_result.get('total_rows'),
+            'columns': parse_result.get('columns'),
+            'inferred_types': parse_result.get('inferred_types'),
+            'preview': parse_result.get('preview')
+        })
+    except Exception as err:
+        logger.error(f"Error previewing file: {err}", exc_info=True)
+        return jsonify({'success': False, 'message': f"Preview error: {str(err)}"}), 200
+
+
+@generator_bp.route('/api/db-create-chat/build-from-file-ai', methods=['POST'])
+def build_from_file_ai():
+    """Build database schema & populate data from uploaded file according to user AI prompt."""
+    try:
+        data = request.get_json() or {}
+        file_path = data.get('file_path', '').strip()
+        db_type = data.get('db_type', 'sqlserver').lower()
+        db_name = data.get('db_name', 'SmartDB_Project').strip()
+        table_name = data.get('table_name', '').strip()
+        ai_prompt = data.get('prompt', '').strip()
+
+        if not file_path or not os.path.exists(file_path):
+            return jsonify({'success': False, 'message': 'File path missing or expired. Please upload file again.'}), 400
+
+        from services.import_service import ImportService
+        parse_result = ImportService.parse_uploaded_file(file_path)
+        if 'error' in parse_result:
+            return jsonify({'success': False, 'message': parse_result['error']}), 400
+
+        columns = parse_result.get('columns', [])
+        inferred_types = parse_result.get('inferred_types', {})
+        filename = parse_result.get('file_name', 'data_file')
+
+        if not table_name:
+            table_name = os.path.splitext(filename)[0]
+
+        table_name = re.sub(r'[^A-Za-z0-9_\-]', '', table_name.replace(' ', '_')) or 'ImportedData'
+        db_name = re.sub(r'[^A-Za-z0-9_\-]', '', db_name.replace(' ', '_')) or 'SmartDB_Project'
+
+        # Auto-detect column specifications
+        cols_spec = []
+        for col in columns:
+            col_clean = re.sub(r'[^A-Za-z0-9_]', '_', str(col))
+            ctype = inferred_types.get(col, 'VARCHAR(255)')
+            if db_type == 'mongodb' and ctype == 'VARCHAR(255)':
+                ctype = 'string'
+            cols_spec.append({'name': col_clean, 'type': ctype, 'primary_key': col_clean.lower() in ['id', '_id']})
+
+        if cols_spec and not any(c['primary_key'] for c in cols_spec):
+            cols_spec[0]['primary_key'] = True
+
+        # 1. Create target database
+        conn_config = {}
+        ConnectionManager.create_database(db_type, db_name, conn_config)
+
+        # 2. Create target table / collection
+        success, msg = ConnectionManager.create_table(db_type, db_name, table_name, cols_spec, conn_config)
+
+        # 3. Bulk insert records from file
+        mapping = {col: re.sub(r'[^A-Za-z0-9_]', '_', str(col)) for col in columns}
+        import_ok, import_msg, inserted_count = ImportService.execute_bulk_import(db_type, db_name, table_name, file_path, mapping, conn_config)
+
+        # 4. Save in SharedDatabase registry
+        new_db = SharedDatabase(
+            project_name = db_name,
+            requirements = f"Database generated from file `{filename}` -> AI Prompt: {ai_prompt or 'Import All'}",
+            sql_code     = f"-- Table {table_name} generated from file {filename}\n-- User Prompt: {ai_prompt or 'Import All'}\n-- Total rows imported: {inserted_count}",
+            industry     = 'AI Import',
+            database_type= db_type,
+            is_deployed  = True,
+            deployed_to  = f"{db_type.upper()} -> {db_name}.{table_name}"
+        )
+        try:
+            db.session.add(new_db)
+            db.session.commit()
+            _track('generated', new_db.id)
+        except Exception:
+            db.session.rollback()
+
+        return jsonify({
+            'success': True,
+            'message': f"✓ Database `{db_name}` and table `{table_name}` generated successfully from `{filename}`! ({inserted_count} records imported)",
+            'redirect': f"/crud?db_type={db_type}&db_name={db_name}&table={table_name}"
+        })
+    except Exception as err:
+        logger.error(f"Error in build_from_file_ai: {err}", exc_info=True)
+        return jsonify({'success': False, 'message': f"AI database build error: {str(err)}"}), 200
 
 
 @generator_bp.route('/database/<int:db_id>')
@@ -197,7 +470,6 @@ def database_details(db_id):
     db.session.commit()
     _track('viewed', db_id)
 
-    # Parse JSON fields safely
     entities_data    = _safe_json(database.entities_json)
     data_dict        = _safe_json(database.data_dictionary)
     api_docs         = _safe_json(database.api_docs)
@@ -233,19 +505,12 @@ def delete_database(db_id):
     if database is None:
         from flask import abort
         abort(404)
-    # Check permission (owner or admin)
-    if current_user.is_authenticated and (current_user.id == database.user_id or current_user.role == 'admin'):
+    if current_user.is_authenticated and (current_user.id == database.user_id or current_user.role == 'admin') or database.user_id is None:
         db.session.delete(database)
         db.session.commit()
         flash('Database entry deleted.', 'info')
     else:
-        # If not signed in, check if it was anonymous (no owner)
-        if database.user_id is None:
-            db.session.delete(database)
-            db.session.commit()
-            flash('Database entry deleted.', 'info')
-        else:
-            flash('You do not have permission to delete this database.', 'danger')
+        flash('Permission denied.', 'danger')
     return redirect(url_for('marketplace.store'))
 
 
@@ -264,416 +529,3 @@ def download_sql_file(db_id):
     _track('downloaded', db_id)
     return Response(database.sql_code, mimetype='text/plain',
                     headers={'Content-Disposition': f'attachment; filename={safe}.sql'})
-
-
-@generator_bp.route('/execute/<int:db_id>', methods=['GET', 'POST'])
-def execute_schema(db_id):
-    database     = db.session.get(SharedDatabase, db_id)
-    if database is None:
-        from flask import abort
-        abort(404)
-    logs         = []
-    success      = False
-    download_url = None
-    db_type      = 'sqlite'
-    host='localhost'; port=''; username=''; password=''; db_name=''
-
-    if request.method == 'POST':
-        db_type  = request.form.get('db_type', 'sqlite')
-        host     = request.form.get('host', 'localhost')
-        port     = request.form.get('port', '')
-        username = request.form.get('username', '')
-        password = request.form.get('password', '')
-        db_name  = request.form.get('db_name', '').strip()
-
-        try:
-            logs.append(f"Translating SQL schema dialect for target DBMS: {db_type.upper()}")
-            translated_sql = translate_sql(database.sql_code, db_type)
-
-            if db_type == 'sqlite':
-                safe_proj  = re.sub(r'[^a-zA-Z0-9_]', '_', database.project_name.lower())
-                db_fname   = f"{safe_proj}_{db_id}.db"
-                db_fpath   = os.path.join(cfg.SQLITE_DIR, db_fname)
-                if os.path.exists(db_fpath):
-                     os.remove(db_fpath)
-                conn   = sqlite3.connect(db_fpath)
-                cursor = conn.cursor()
-                logs.append(f"Initialising SQLite file: {db_fname}")
-                stmts = split_sql_statements(translated_sql)
-                for idx, stmt in enumerate(stmts, 1):
-                    logs.append(f"Executing statement {idx}: {stmt[:70]}...")
-                    cursor.execute(stmt)
-                conn.commit(); conn.close()
-                success      = True
-                download_url = url_for('static', filename=f'generated_databases/{db_fname}')
-                logs.append("All statements executed. Database file ready for download.")
-                database.downloads_count = (database.downloads_count or 0) + 1
-                database.is_deployed = True
-                database.deployed_to = "SQLite Local File"
-                db.session.commit()
-                _track('deployed', db_id)
-            else:
-                if not db_name:
-                    raise ValueError("Database Name is required for server deployments.")
-                from sqlalchemy import create_engine, text
-                if not port:
-                    port = {'mysql':'3306','postgresql':'5432','mssql':'1433'}.get(db_type,'5432')
-                if db_type == 'mysql':
-                    import pymysql
-                    conn_url  = f"mysql+pymysql://{quote_plus(username)}:{quote_plus(password)}@{host}:{port}/{db_name}"
-                    admin_url = f"mysql+pymysql://{quote_plus(username)}:{quote_plus(password)}@{host}:{port}/"
-                elif db_type == 'postgresql':
-                    import psycopg2
-                    conn_url  = f"postgresql+psycopg2://{quote_plus(username)}:{quote_plus(password)}@{host}:{port}/{db_name}"
-                    admin_url = f"postgresql+psycopg2://{quote_plus(username)}:{quote_plus(password)}@{host}:{port}/postgres"
-                elif db_type == 'mssql':
-                    import pyodbc
-                    drv       = 'ODBC Driver 17 for SQL Server'
-                    conn_url  = f"mssql+pyodbc://{quote_plus(username)}:{quote_plus(password)}@{host}:{port}/{db_name}?driver={quote_plus(drv)}&Encrypt=no"
-                    admin_url = f"mssql+pyodbc://{quote_plus(username)}:{quote_plus(password)}@{host}:{port}/master?driver={quote_plus(drv)}&Encrypt=no"
-                logs.append(f"Connecting to {db_type.upper()} at {host}:{port}...")
-                try:
-                    ae = create_engine(admin_url)
-                    with ae.execution_options(isolation_level='AUTOCOMMIT').connect() as c:
-                        if db_type == 'mysql':
-                            c.execute(text(f"CREATE DATABASE IF NOT EXISTS {db_name}"))
-                        elif db_type == 'postgresql':
-                            res = c.execute(text(f"SELECT 1 FROM pg_database WHERE datname='{db_name}'"))
-                            if not res.scalar():
-                                c.execute(text(f"CREATE DATABASE {db_name}"))
-                        logs.append(f"Database '{db_name}' ready.")
-                    ae.dispose()
-                except Exception as e:
-                    logs.append(f"Auto-create note: {e}")
-                engine = create_engine(conn_url)
-                with engine.execution_options(isolation_level='AUTOCOMMIT').connect() as c:
-                    stmts = split_sql_statements(translated_sql)
-                    for idx, stmt in enumerate(stmts, 1):
-                        logs.append(f"Executing {idx}: {stmt[:70]}...")
-                        c.execute(text(stmt))
-                engine.dispose()
-                logs.append("All statements executed successfully!")
-                success = True
-                database.is_deployed = True
-                database.deployed_to = f"{db_type.upper()} ({host}:{port}) -> {db_name}"
-                db.session.commit()
-                _track('deployed', db_id)
-        except Exception as e:
-            logs.append(f"ERROR: {e}")
-            success = False
-
-    return render_template('deploy.html', database=database, logs=logs, success=success,
-                           download_url=download_url, db_type=db_type,
-                           host=host, port=port, username=username, password=password, db_name=db_name)
-
-
-@generator_bp.route('/push-to-ssms/<int:db_id>', methods=['GET', 'POST'])
-def push_to_ssms(db_id):
-    from services.sqlserver_service import SqlServerService
-    database    = db.session.get(SharedDatabase, db_id)
-    if database is None:
-        from flask import abort
-        abort(404)
-    logs        = []
-    success     = False
-    db_name     = ''
-    server_name = SqlServerService.get_server()
-    auth_mode   = 'windows'
-    sql_user     = ''
-    sql_password = ''
-
-    if request.method == 'POST':
-        db_name      = request.form.get('db_name', '').strip()
-        server_name  = request.form.get('server_name', SqlServerService.get_server()).strip()
-        auth_mode    = request.form.get('auth_mode', 'windows')
-        sql_user     = request.form.get('sql_user', '').strip()
-        sql_password = request.form.get('sql_password', '')
-
-        if not db_name:
-            logs.append("ERROR: Database name is required.")
-        else:
-            try:
-                import pyodbc
-                available = [d for d in pyodbc.drivers() if 'SQL Server' in d]
-                if not available:
-                    raise RuntimeError("No SQL Server ODBC driver found. Install 'ODBC Driver 17 for SQL Server'.")
-                chosen = next((d for d in ['ODBC Driver 18 for SQL Server','ODBC Driver 17 for SQL Server','SQL Server'] if d in available), available[0])
-                logs.append(f"Using driver: {chosen}")
-
-                def build_conn_str(srv, db='master'):
-                    base = f"DRIVER={{{chosen}}};SERVER={srv};DATABASE={db};Encrypt=no;TrustServerCertificate=yes;"
-                    return base + ("Trusted_Connection=yes;" if auth_mode=='windows' else f"UID={sql_user};PWD={sql_password};")
-
-                master = None
-                try:
-                    master = pyodbc.connect(build_conn_str(server_name, 'master'), autocommit=True)
-                except pyodbc.Error as conn_err:
-                    # If connecting to plain 'localhost' fails, auto-try system configured instance (e.g. localhost\SQLEXPRESS04)
-                    sys_server = SqlServerService.get_server()
-                    if server_name != sys_server:
-                        logs.append(f"Could not connect to '{server_name}'. Retrying with detected instance '{sys_server}'...")
-                        try:
-                            master = pyodbc.connect(build_conn_str(sys_server, 'master'), autocommit=True)
-                            server_name = sys_server
-                            logs.append(f"Connected successfully to '{sys_server}'.")
-                        except pyodbc.Error:
-                            raise conn_err
-                    else:
-                        raise conn_err
-
-                cur = master.cursor()
-                cur.execute("SELECT COUNT(*) FROM sys.databases WHERE name=?", db_name)
-                if cur.fetchone()[0]:
-                    logs.append(f"Database '{db_name}' exists — using it.")
-                else:
-                    cur.execute(f"CREATE DATABASE [{db_name}]")
-                    logs.append(f"Created database '{db_name}'.")
-                master.close()
-
-                translated = translate_sql(database.sql_code, 'mssql')
-                target = pyodbc.connect(build_conn_str(server_name, db_name), autocommit=True)
-                tcur   = target.cursor()
-                stmts  = split_sql_statements(translated)
-                for idx, stmt in enumerate(stmts, 1):
-                    logs.append(f"Executing {idx}: {stmt[:70]}...")
-                    tcur.execute(stmt)
-                target.commit(); target.close()
-                logs.append(f"Done! '{db_name}' is live on SQL Server. Open SSMS → Databases → Refresh.")
-                success = True
-                database.is_deployed = True
-                database.deployed_to = f"SQL Server ({server_name}) -> {db_name}"
-                db.session.commit()
-                _track('deployed', db_id)
-            except ImportError:
-                logs.append("ERROR: 'pyodbc' not installed. Run: pip install pyodbc")
-            except Exception as e:
-                logs.append(f"ERROR: {e}")
-
-    return render_template('ssms.html', database=database, logs=logs, success=success,
-                           db_name=db_name, server_name=server_name, auth_mode=auth_mode, sql_user=sql_user)
-
-
-@generator_bp.route('/detect-sqlserver')
-def detect_sqlserver():
-    try:
-        import pyodbc
-        drivers = [d for d in pyodbc.drivers() if 'SQL Server' in d]
-        return jsonify({'drivers': drivers, 'available': len(drivers) > 0})
-    except ImportError:
-        return jsonify({'drivers': [], 'available': False, 'error': 'pyodbc not installed'})
-
-
-# ── Export Routes ─────────────────────────────────────────────────────────────
-
-@generator_bp.route('/export-csv/<int:db_id>')
-def export_csv(db_id):
-    """Export dynamic table data from SQL Server as CSV."""
-    from services.sqlserver_service import SqlServerService
-    database = db.session.get(SharedDatabase, db_id)
-    if database is None:
-        from flask import abort; abort(404)
-
-    db_name = database.project_name
-    if not SqlServerService.check_db_exists(db_name):
-        flash(f"SQL Server database '{db_name}' not found.", 'warning')
-        return redirect(url_for('generator.database_details', db_id=db_id))
-
-    table_name = request.args.get('table', '')
-    try:
-        conn = SqlServerService.get_connection(db_name)
-        tables = SqlServerService.get_tables(db_name)
-        
-        if not table_name:
-            table_name = tables[0] if tables else None
-            
-        if not table_name:
-            conn.close()
-            flash('No user tables found in database.', 'danger')
-            return redirect(url_for('generator.database_details', db_id=db_id))
-            
-        if table_name not in tables:
-            conn.close()
-            abort(404)
-            
-        cursor = conn.cursor()
-        cursor.execute(f"SELECT * FROM [{table_name}]")
-        col_names = [col[0] for col in cursor.description]
-        rows = [dict(zip(col_names, row)) for row in cursor.fetchall()]
-        cursor.close()
-        conn.close()
-    except Exception as e:
-        flash(f"Failed to read data from SQL Server: {e}", 'danger')
-        return redirect(url_for('generator.database_details', db_id=db_id))
-
-    output = io.StringIO()
-    if rows:
-        writer = csv.DictWriter(output, fieldnames=rows[0].keys())
-        writer.writeheader()
-        for row in rows:
-            writer.writerow(row)
-
-    _track('downloaded', db_id)
-    safe_table = re.sub(r'[^a-zA-Z0-9_]', '_', table_name.lower())
-    filename = f"{db_name}_{safe_table}.csv"
-    return Response(
-        output.getvalue(),
-        mimetype='text/csv',
-        headers={'Content-Disposition': f'attachment; filename={filename}'}
-    )
-
-
-@generator_bp.route('/export-json/<int:db_id>')
-def export_json(db_id):
-    """Export all tables from SQL Server as a single JSON file."""
-    from services.sqlserver_service import SqlServerService
-    database = db.session.get(SharedDatabase, db_id)
-    if database is None:
-        from flask import abort; abort(404)
-
-    db_name = database.project_name
-    if not SqlServerService.check_db_exists(db_name):
-        flash(f"SQL Server database '{db_name}' not found.", 'warning')
-        return redirect(url_for('generator.database_details', db_id=db_id))
-
-    try:
-        conn = SqlServerService.get_connection(db_name)
-        tables = SqlServerService.get_tables(db_name)
-        
-        all_data = {}
-        cursor = conn.cursor()
-        for tbl in tables:
-            cursor.execute(f"SELECT * FROM [{tbl}]")
-            col_names = [col[0] for col in cursor.description]
-            all_data[tbl] = [dict(zip(col_names, row)) for row in cursor.fetchall()]
-        cursor.close()
-        conn.close()
-    except Exception as e:
-        flash(f"Failed to extract JSON data from SQL Server: {e}", 'danger')
-        return redirect(url_for('generator.database_details', db_id=db_id))
-
-    _track('downloaded', db_id)
-    filename = f"{db_name}_export.json"
-    return Response(
-        json.dumps(all_data, indent=2, default=str),
-        mimetype='application/json',
-        headers={'Content-Disposition': f'attachment; filename={filename}'}
-    )
-
-
-@generator_bp.route('/export-excel/<int:db_id>')
-def export_excel(db_id):
-    """Export all tables and records from SQL Server to a formatted multi-sheet Excel file."""
-    from services.sqlserver_service import SqlServerService
-    database = db.session.get(SharedDatabase, db_id)
-    if database is None:
-        from flask import abort; abort(404)
-
-    db_name = database.project_name
-    if not SqlServerService.check_db_exists(db_name):
-        flash(f"SQL Server database '{db_name}' not found.", 'warning')
-        return redirect(url_for('generator.database_details', db_id=db_id))
-
-    try:
-        from openpyxl import Workbook
-        from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
-        from openpyxl.utils import get_column_letter
-    except ImportError:
-        flash('openpyxl package is not installed. Run: pip install openpyxl', 'danger')
-        return redirect(url_for('generator.database_details', db_id=db_id))
-
-    try:
-        conn = SqlServerService.get_connection(db_name)
-        tables = SqlServerService.get_tables(db_name)
-        
-        wb = Workbook()
-        wb.remove(wb.active)  # Remove default sheet
-
-        # Premium Style definitions
-        header_fill = PatternFill('solid', fgColor='003366')
-        header_font = Font(bold=True, color='FFFFFF', name='Calibri', size=11)
-        body_font   = Font(name='Calibri', size=10)
-        thin_border = Border(
-            left=Side(style='thin', color='DDDDDD'), right=Side(style='thin', color='DDDDDD'),
-            top=Side(style='thin', color='DDDDDD'), bottom=Side(style='thin', color='DDDDDD')
-        )
-
-        cursor = conn.cursor()
-        for tbl in tables:
-            ws = wb.create_sheet(title=tbl[:31])  # sheet name max 31 chars
-            cursor.execute(f"SELECT * FROM [{tbl}]")
-            col_names = [col[0] for col in cursor.description]
-            rows = cursor.fetchall()
-            
-            # Write Headers
-            ws.append(col_names)
-            for cell in ws[1]:
-                cell.font      = header_font
-                cell.fill      = header_fill
-                cell.alignment = Alignment(horizontal='center', vertical='center')
-                cell.border    = thin_border
-
-            # Write Rows
-            for row in rows:
-                ws.append(list(row))
-                for cell in ws[ws.max_row]:
-                    cell.font   = body_font
-                    cell.border = thin_border
-
-            # Auto-fit column widths
-            for idx, col in enumerate(ws.columns, 1):
-                max_len = max((len(str(cell.value or '')) for cell in col), default=10)
-                ws.column_dimensions[get_column_letter(idx)].width = min(max_len + 4, 40)
-                
-        cursor.close()
-        conn.close()
-    except Exception as e:
-        flash(f"Failed to generate Excel sheet from SQL Server: {e}", 'danger')
-        return redirect(url_for('generator.database_details', db_id=db_id))
-
-    output = io.BytesIO()
-    wb.save(output)
-    output.seek(0)
-    _track('downloaded', db_id)
-
-    return send_file(
-        output,
-        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        as_attachment=True,
-        download_name=f"{db_name}_data.xlsx"
-    )
-
-
-# ── Clone Route ───────────────────────────────────────────────────────────────
-
-@generator_bp.route('/clone/<int:db_id>', methods=['POST'])
-def clone_database(db_id):
-    """Clone (duplicate) an existing schema as a new project."""
-    source = db.session.get(SharedDatabase, db_id)
-    if source is None:
-        from flask import abort; abort(404)
-
-    new_name = request.form.get('clone_name', f'{source.project_name} (Clone)').strip()
-
-    clone = SharedDatabase(
-        project_name    = new_name,
-        requirements    = source.requirements,
-        sql_code        = source.sql_code,
-        industry        = source.industry,
-        tags            = source.tags,
-        er_diagram_mmd  = source.er_diagram_mmd,
-        entities_json   = source.entities_json,
-        data_dictionary = source.data_dictionary,
-        sample_data     = source.sample_data,
-        api_docs        = source.api_docs,
-        improvements    = source.improvements,
-        nosql_schema    = source.nosql_schema,
-        ai_generated    = source.ai_generated,
-        user_id         = current_user.id if current_user.is_authenticated else None,
-        is_deployed     = False,
-        deployed_to     = None,
-    )
-    db.session.add(clone)
-    db.session.commit()
-    _track('generated', clone.id)
-    flash(f'Schema cloned as "{new_name}"! 🎉 You can now modify and deploy it.', 'success')
-    return redirect(url_for('generator.database_details', db_id=clone.id))

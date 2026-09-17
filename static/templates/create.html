@@ -1,190 +1,175 @@
 {% extends 'base.html' %}
-{% block title %}AI Database Generator — SMART DB{% endblock %}
+{% block title %}Generate Database &amp; Platform Architect — SMART DB{% endblock %}
 
 {% block content %}
 <div class="row justify-content-center">
-<div class="col-xl-11">
+<div class="col-xl-11 col-lg-12">
 
-    <!-- Page Title & Header -->
+    <!-- Header Section -->
     <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-3">
         <div>
-            <h1 class="fw-bold mb-1"><i class="fa-solid fa-wand-magic-sparkles text-icon-purple me-2"></i>AI Database Generator</h1>
-            <p class="text-secondary mb-0">Describe your system requirements in plain English to automatically construct production-grade SQL databases.</p>
+            <h1 class="fw-bold mb-1 text-dark"><i class="fa-solid fa-wand-magic-sparkles text-icon-purple me-2"></i>Multi-Database Generation &amp; Architect Platform</h1>
+            <p class="text-secondary mb-0">Select your database target specification, connect/create instances, and configure data structures interactively.</p>
         </div>
         <div class="d-flex align-items-center gap-2">
-            {% if ai_enabled %}
-            <span class="badge-purple"><i class="fa-solid fa-circle-check me-1 text-icon-green"></i> GPT-4o Active</span>
-            {% else %}
-            <span class="badge-gov"><i class="fa-solid fa-microchip me-1 text-icon-purple"></i> Smart Engine</span>
-            {% endif %}
-            <span class="badge-green"><i class="fa-solid fa-shield-halved me-1 text-icon-green"></i> v3.0 Enterprise</span>
+            <button class="btn btn-outline-purple btn-sm" onclick="resetWorkflow()">
+                <i class="fa-solid fa-rotate-left me-1"></i> Reset Workflow
+            </button>
         </div>
     </div>
 
-    <!-- Main Generator Form Card -->
-    <div class="card mb-4 p-4 shadow-sm">
-        <div class="card-body p-md-4">
-            <form method="POST" id="generatorForm">
+    <!-- ── Step 1: Select Database Specification Cards ── -->
+    <div class="card shadow-md border-0 rounded-4 mb-4 bg-white">
+        <div class="card-header border-bottom py-3 px-4 d-flex align-items-center justify-content-between bg-light">
+            <div class="d-flex align-items-center gap-2">
+                <div class="badge bg-purple text-white px-2 py-1 rounded">STEP 1</div>
+                <h5 class="fw-bold m-0 text-dark"><i class="fa-solid fa-layer-group text-icon-cyan me-2"></i>Select Database Specification</h5>
+            </div>
+            <span class="text-secondary small">Click a platform specification to begin</span>
+        </div>
 
-                <div class="row g-4 mb-4">
-                    <div class="col-md-6">
-                        <label class="form-label" for="project_name">
-                            <i class="fa-solid fa-database text-icon-blue me-1"></i> Database Name <span class="text-danger">*</span>
-                        </label>
-                        <input type="text" name="project_name" id="project_name" class="form-control"
-                               placeholder="e.g. HospitalDB" required
-                               value="{{ project_name or request.args.get('name', '') }}">
-                        <div class="form-text">Specify the name of the database to be generated and registered.</div>
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label">
-                            <i class="fa-solid fa-server text-icon-cyan me-1"></i> Target Database Server
-                        </label>
-                        <div class="p-2 px-3 rounded-2 bg-light border">
-                            <span class="text-dark small fw-bold"><i class="fa-solid fa-hard-drive me-1 text-icon-blue"></i> SQL Server Express (localhost\SQLEXPRESS04)</span>
-                            <span class="badge bg-success ms-2 px-2 py-1" style="font-size:0.7rem;"><i class="fa-solid fa-lock me-1"></i> Windows Auth</span>
+        <div class="card-body p-4">
+            <div class="row g-3" id="specCardsRow">
+                <!-- SQL SERVER CARD -->
+                <div class="col-md-4 col-sm-6">
+                    <div class="spec-card card h-100 p-3 bg-white border rounded-3 cursor-pointer" onclick="selectSpecification('sqlserver')" id="spec-card-sqlserver">
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <div class="icon-box icon-box-md bg-purple text-white rounded-circle"><i class="fa-solid fa-database"></i></div>
+                            <span class="badge-purple">SQL SERVER</span>
                         </div>
-                        <div class="form-text">Direct native connection configured in environment settings.</div>
+                        <h5 class="fw-bold text-dark mb-1">Microsoft SQL Server</h5>
+                        <p class="text-secondary small mb-2">Enterprise relational engine with T-SQL, identity keys, stored procedures &amp; foreign keys.</p>
+                        <div class="small text-purple fw-semibold"><i class="fa-solid fa-check me-1"></i> T-SQL • Primary Keys • FK • Transactions</div>
                     </div>
                 </div>
 
-                <!-- Input Method Tabs -->
-                <ul class="nav nav-tabs mb-4" id="inputTabs">
-                    <li class="nav-item">
-                        <a class="nav-link active" data-bs-toggle="tab" href="#tab-nlp">
-                            <i class="fa-solid fa-robot me-1 text-icon-purple"></i> AI Natural Language
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" data-bs-toggle="tab" href="#tab-manual">
-                            <i class="fa-solid fa-code me-1 text-icon-teal"></i> Manual Column Spec
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" data-bs-toggle="tab" href="#tab-template">
-                            <i class="fa-solid fa-layer-group me-1 text-icon-indigo"></i> Pre-built Templates
-                        </a>
-                    </li>
-                </ul>
-
-                <div class="tab-content mb-4">
-                    <!-- Natural Language Processing Tab -->
-                    <div class="tab-pane fade show active" id="tab-nlp">
-                        <label class="form-label" for="requirements">System Requirements &amp; Business Rules</label>
-                        <textarea name="requirements" id="requirements" class="form-control" rows="6"
-                            placeholder="Example: I need a Hospital Management System where patients book appointments with doctors. The system should track departments, manage billing, store patient medical history, and handle prescription records."></textarea>
-                        <div class="form-text mt-2">
-                            <i class="fa-solid fa-lightbulb me-1 text-icon-amber"></i>
-                            The AI engine extracts entities, resolves relationships, performs 3NF normalization, and produces ready-to-run DDL scripts.
+                <!-- MYSQL CARD -->
+                <div class="col-md-4 col-sm-6">
+                    <div class="spec-card card h-100 p-3 bg-white border rounded-3 cursor-pointer" onclick="selectSpecification('mysql')" id="spec-card-mysql">
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <div class="icon-box icon-box-md bg-info text-white rounded-circle"><i class="fa-solid fa-server"></i></div>
+                            <span class="badge-blue">MYSQL</span>
                         </div>
-
-                        <!-- Quick Requirements Examples -->
-                        <div class="d-flex flex-wrap align-items-center gap-2 mt-3">
-                            <span class="text-secondary small fw-semibold me-1">Quick Samples:</span>
-                            {% for ex in [
-                                ('Hospital Management System with patients, doctors, appointments and billing', 'btn-outline-purple', 'fa-hospital', 'text-icon-purple'),
-                                ('E-commerce platform with products, orders, customers and inventory', 'btn-outline-success', 'fa-cart-shopping', 'text-icon-green'),
-                                ('University LMS with students, courses, grades and assignments', 'btn-outline-primary', 'fa-graduation-cap', 'text-icon-blue'),
-                                ('Library system with books, members, borrowing and fines', 'btn-outline-cyan', 'fa-book', 'text-icon-cyan'),
-                                ('HR system with employees, departments, leave and payroll', 'btn-outline-warning', 'fa-users-gear', 'text-icon-amber'),
-                            ] %}
-                            <button type="button" class="btn {{ ex[1] }} btn-sm rounded-2 py-1 px-2" style="font-size:0.8rem;"
-                                    onclick="document.getElementById('requirements').value='I need a {{ ex[0] }}.'; document.getElementById('project_name').value=sanitizeDbName('{{ ex[0].split(' with')[0] }}');">
-                                <i class="fa-solid {{ ex[2] }} me-1 {{ ex[3] }}"></i> {{ ex[0].split(' with')[0] }}
-                            </button>
-                            {% endfor %}
-                        </div>
-                    </div>
-
-                    <!-- Manual Specification Tab -->
-                    <div class="tab-pane fade" id="tab-manual">
-                        <div class="row g-3">
-                            <div class="col-md-5">
-                                <label class="form-label" for="table_name">Table Name</label>
-                                <input type="text" name="table_name" id="table_name" class="form-control" placeholder="e.g. employees">
-                            </div>
-                            <div class="col-md-7">
-                                <label class="form-label" for="columns_spec">Column Definitions</label>
-                                <textarea name="columns_spec" id="columns_spec" class="form-control" rows="5"
-                                    placeholder="id:INTEGER PRIMARY KEY&#10;name:VARCHAR(100)&#10;email:VARCHAR(255)&#10;salary:DECIMAL(10,2)&#10;department_id:INTEGER"></textarea>
-                                <div class="form-text">Format: <code>column_name:DATA_TYPE</code> — one per line.</div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Industry Template Selection Tab -->
-                    <div class="tab-pane fade" id="tab-template">
-                        <label class="form-label">Select an Industry Template</label>
-                        <div class="row g-3">
-                            {% for tmpl in templates_featured %}
-                            <div class="col-md-4">
-                                <label style="cursor:pointer; display:block;" class="h-100">
-                                    <input type="radio" name="use_template" value="{{ tmpl.id }}" style="display:none;">
-                                    <div class="card h-100 p-3 template-card" id="tmpl-card-{{ tmpl.id }}"
-                                         onclick="selectTemplate({{ tmpl.id }}, '{{ tmpl.name }}')">
-                                        <div class="icon-box icon-box-purple mb-2">
-                                            <i class="fa-solid {{ tmpl.icon if tmpl.icon and tmpl.icon.startswith('fa-') else 'fa-layer-group' }}"></i>
-                                        </div>
-                                        <h6 class="fw-bold text-dark mb-1">{{ tmpl.name }}</h6>
-                                        <p class="text-muted small mb-2">{{ tmpl.description[:80] }}...</p>
-                                        <span class="badge-purple"><i class="fa-solid fa-tag me-1"></i> {{ tmpl.category }}</span>
-                                    </div>
-                                </label>
-                            </div>
-                            {% endfor %}
-                        </div>
-                        <a href="/templates" class="btn btn-outline-indigo btn-sm mt-3">
-                            <i class="fa-solid fa-layer-group me-1 text-icon-indigo"></i> Browse All Templates
-                        </a>
+                        <h5 class="fw-bold text-dark mb-1">MySQL Engine</h5>
+                        <p class="text-secondary small mb-2">High-performance open-source relational engine with AUTO_INCREMENT, InnoDB, and UTF8MB4 support.</p>
+                        <div class="small text-cyan fw-semibold"><i class="fa-solid fa-check me-1"></i> MySQL DDL • AUTO_INC • Foreign Keys</div>
                     </div>
                 </div>
 
-                <!-- Form Submit and Reset Controls -->
-                <div class="d-flex gap-3 flex-wrap align-items-center pt-2 border-top">
-                    <button class="btn btn-purple btn-lg px-4" type="submit" id="submitBtn">
-                        <i class="fa-solid fa-wand-magic-sparkles me-2"></i> Generate Database Schema
-                    </button>
-                    <button class="btn btn-outline-secondary py-2 px-3" type="reset" onclick="clearForm()">
-                        <i class="fa-solid fa-rotate-left me-1 text-icon-amber"></i> Reset Form
-                    </button>
-                    <span class="text-muted small ms-auto">
-                        <i class="fa-solid fa-clock me-1 text-icon-blue"></i> Average processing time: 5–15 seconds
-                    </span>
-                </div>
-
-                <!-- Pipeline Processing Status Overlay -->
-                <div id="loadingPanel" class="mt-4" style="display:none;">
-                    <div class="card p-4 border-primary bg-light">
-                        <div class="d-flex align-items-center gap-3 mb-3">
-                            <div class="spinner-border text-primary" role="status" style="width:1.5rem; height:1.5rem;"></div>
-                            <span class="fw-bold fs-6 text-primary">AI Schema Pipeline Executing...</span>
+                <!-- ORACLE CARD -->
+                <div class="col-md-4 col-sm-6">
+                    <div class="spec-card card h-100 p-3 bg-white border rounded-3 cursor-pointer" onclick="selectSpecification('oracle')" id="spec-card-oracle">
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <div class="icon-box icon-box-md bg-danger text-white rounded-circle"><i class="fa-solid fa-building-columns"></i></div>
+                            <span class="badge bg-danger-subtle text-danger border border-danger">ORACLE</span>
                         </div>
-                        <div class="ai-steps" id="aiSteps">
-                            <div class="ai-step pending py-1 text-secondary small" id="step-1"><span class="fw-bold me-2">Step 1:</span> Analyzing requirements text</div>
-                            <div class="ai-step pending py-1 text-secondary small" id="step-2"><span class="fw-bold me-2">Step 2:</span> Extracting entities, attributes &amp; relationships</div>
-                            <div class="ai-step pending py-1 text-secondary small" id="step-3"><span class="fw-bold me-2">Step 3:</span> Constructing 3NF relational tables</div>
-                            <div class="ai-step pending py-1 text-secondary small" id="step-4"><span class="fw-bold me-2">Step 4:</span> Generating Mermaid ER diagram source</div>
-                            <div class="ai-step pending py-1 text-secondary small" id="step-5"><span class="fw-bold me-2">Step 5:</span> Documenting data dictionary</div>
-                            <div class="ai-step pending py-1 text-secondary small" id="step-6"><span class="fw-bold me-2">Step 6:</span> Building mock INSERT data &amp; API specs</div>
-                            <div class="ai-step pending py-1 text-secondary small" id="step-7"><span class="fw-bold me-2">Step 7:</span> Registering database schema</div>
-                        </div>
+                        <h5 class="fw-bold text-dark mb-1">Oracle Database</h5>
+                        <p class="text-secondary small mb-2">Enterprise-grade PL/SQL relational platform with robust schemas &amp; dictionary views.</p>
+                        <div class="small text-danger fw-semibold"><i class="fa-solid fa-check me-1"></i> PL/SQL • Schemas • Sequences • Views</div>
                     </div>
                 </div>
 
-                {% if error_logs %}
-                <div class="card mt-4 border-danger bg-light" id="logs-panel">
-                    <div class="card-body p-4">
-                        <div class="d-flex align-items-center justify-content-between mb-3">
-                            <h5 class="fw-bold m-0 text-danger"><i class="fa-solid fa-triangle-exclamation me-2"></i>Deployment Execution Console</h5>
-                            <span class="badge bg-danger px-3 py-2 fw-bold text-white"><i class="fa-solid fa-xmark me-1"></i> Deployment Error</span>
+                <!-- MONGODB CARD -->
+                <div class="col-md-4 col-sm-6">
+                    <div class="spec-card card h-100 p-3 bg-white border rounded-3 cursor-pointer" onclick="selectSpecification('mongodb')" id="spec-card-mongodb">
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <div class="icon-box icon-box-md bg-success text-white rounded-circle"><i class="fa-solid fa-leaf"></i></div>
+                            <span class="badge-green">MONGODB</span>
                         </div>
-                        <pre class="code-container mb-0" style="max-height:250px; overflow-y:auto; color:#F87171;">{% for log in error_logs %}&gt; {{ log }}
-{% endfor %}</pre>
+                        <h5 class="fw-bold text-dark mb-1">MongoDB (NoSQL)</h5>
+                        <p class="text-secondary small mb-2">Flexible BSON document store with collections, nested objects, arrays, and pipelines.</p>
+                        <div class="small text-success fw-semibold"><i class="fa-solid fa-check me-1"></i> BSON Documents • Collections • Aggregations</div>
                     </div>
                 </div>
-                {% endif %}
 
-            </form>
+                <!-- EXCEL CARD -->
+                <div class="col-md-4 col-sm-6">
+                    <div class="spec-card card h-100 p-3 bg-white border rounded-3 cursor-pointer" onclick="selectSpecification('excel')" id="spec-card-excel">
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <div class="icon-box icon-box-md bg-warning text-dark rounded-circle"><i class="fa-solid fa-file-excel"></i></div>
+                            <span class="badge-yellow">EXCEL</span>
+                        </div>
+                        <h5 class="fw-bold text-dark mb-1">Excel &amp; Workbooks</h5>
+                        <p class="text-secondary small mb-2">Spreadsheet workspace engine with multiple worksheets, openpyxl styling, and formulas.</p>
+                        <div class="small text-warning fw-semibold"><i class="fa-solid fa-check me-1"></i> Worksheets • Cell Grid • Formulas • Charts</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Step 2: Connection & Instance Config Panel ── -->
+    <div class="card shadow-md border-0 rounded-4 mb-4 d-none bg-white" id="instanceConfigPanel">
+        <div class="card-header border-bottom py-3 px-4 d-flex align-items-center justify-content-between bg-light">
+            <div class="d-flex align-items-center gap-2">
+                <div class="badge bg-purple text-white px-2 py-1 rounded">STEP 2</div>
+                <h5 class="fw-bold m-0 text-dark"><i class="fa-solid fa-plug text-icon-amber me-2"></i>Select Instance / Connection Credentials</h5>
+            </div>
+            <span class="badge bg-secondary" id="activeSpecBadge">SQL SERVER</span>
+        </div>
+
+        <div class="card-body p-4">
+            <div class="row g-3">
+                <div class="col-md-6" id="hostFieldCol">
+                    <label class="form-label text-dark small fw-bold" id="hostLabel">Server / Instance Name</label>
+                    <input type="text" id="connHost" class="form-control bg-white text-dark border-secondary" placeholder="localhost\SQLEXPRESS04">
+                </div>
+                <div class="col-md-3" id="portFieldCol">
+                    <label class="form-label text-dark small fw-bold">Port</label>
+                    <input type="number" id="connPort" class="form-control bg-white text-dark border-secondary" placeholder="3306">
+                </div>
+                <div class="col-md-3" id="serviceFieldCol">
+                    <label class="form-label text-dark small fw-bold">Service / SID</label>
+                    <input type="text" id="connService" class="form-control bg-white text-dark border-secondary" placeholder="XE">
+                </div>
+                <div class="col-md-6" id="userFieldCol">
+                    <label class="form-label text-dark small fw-bold">Username</label>
+                    <input type="text" id="connUser" class="form-control bg-white text-dark border-secondary" placeholder="sa / root / system">
+                </div>
+                <div class="col-md-6" id="passFieldCol">
+                    <label class="form-label text-dark small fw-bold">Password</label>
+                    <input type="password" id="connPass" class="form-control bg-white text-dark border-secondary" placeholder="••••••••">
+                </div>
+            </div>
+
+            <!-- Test Connection Button & Result Alert -->
+            <div class="d-flex align-items-center justify-content-between mt-4">
+                <button type="button" class="btn btn-outline-cyan px-4 fw-semibold" onclick="testConnection()">
+                    <i class="fa-solid fa-network-wired me-1"></i> TEST CONNECTION
+                </button>
+                <button type="button" class="btn btn-purple px-4 fw-semibold" onclick="confirmInstanceConfig()">
+                    Next: Database Name <i class="fa-solid fa-arrow-right ms-1"></i>
+                </button>
+            </div>
+
+            <div id="testConnResult" class="mt-3 d-none"></div>
+        </div>
+    </div>
+
+    <!-- ── Step 3: Interactive Conversational Assistant Window ── -->
+    <div class="card shadow-md border-0 rounded-4 mb-4 d-none bg-white" id="chatAssistantWindow">
+        <div class="card-header border-bottom py-3 px-4 d-flex align-items-center justify-content-between bg-light">
+            <div class="d-flex align-items-center gap-2">
+                <div class="badge bg-purple text-white px-2 py-1 rounded">STEP 3</div>
+                <span class="fw-bold text-dark"><i class="fa-solid fa-robot text-icon-purple me-2"></i>SMART DB AI Architect Assistant</span>
+            </div>
+            <span id="activeSpecTag" class="badge bg-purple text-white px-3 py-1">SQL SERVER</span>
+        </div>
+
+        <div class="card-body p-4 bg-light" style="min-height:360px; max-height:650px; overflow-y:auto;" id="chatBody">
+            <div id="chatMessagesList" class="d-flex flex-column gap-3"></div>
+        </div>
+
+        <div class="card-footer bg-white border-top p-3">
+            <div id="actionButtonsContainer" class="d-flex flex-wrap gap-2 mb-3 align-items-center"></div>
+
+            <div class="input-group input-group-lg">
+                <input id="userInput" type="text" class="form-control bg-white text-dark border-secondary"
+                       placeholder="Type database name or table column specification..." onkeydown="if(event.key==='Enter') sendMessage();">
+                <button class="btn btn-purple px-4" type="button" id="sendBtn" onclick="sendMessage()">
+                    <i class="fa-solid fa-paper-plane me-1"></i> Submit
+                </button>
+            </div>
         </div>
     </div>
 
@@ -194,74 +179,452 @@
 
 {% block extra_scripts %}
 <script>
-function sanitizeDbName(str) {
-    if (!str) return 'MyDatabase';
-    const cleaned = str.replace(/[^A-Za-z0-9\s_]/g, '')
-                       .split(/[\s_]+/)
-                       .map(w => w.charAt(0).toUpperCase() + w.slice(1))
-                       .join('');
-    return cleaned || 'MyDatabase';
-}
+let selectedSpec = 'sqlserver';
+let activeDatabaseName = 'SmartDB_Project';
+let activeParsedFile = null;
 
-let selectedTemplate = {{ request.args.get('template', 'null') }};
-
-function selectTemplate(id, name) {
-    document.querySelectorAll('.template-card').forEach(c => {
-        c.classList.remove('border-primary', 'bg-light');
-    });
-    const card = document.getElementById('tmpl-card-' + id);
-    if (card) {
-        card.classList.add('border-primary', 'bg-light');
+document.addEventListener('DOMContentLoaded', function() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const dbTypeParam = urlParams.get('db_type');
+    if (dbTypeParam && ['sqlserver','mysql','oracle','mongodb','excel'].includes(dbTypeParam.toLowerCase())) {
+        selectSpecification(dbTypeParam.toLowerCase());
+    } else {
+        selectSpecification('sqlserver');
     }
-    document.querySelectorAll('input[name="use_template"]').forEach(r => {
-        r.checked = (parseInt(r.value) === id);
-    });
-    document.getElementById('project_name').value = sanitizeDbName(name);
-}
-
-if (selectedTemplate) {
-    selectTemplate(selectedTemplate, document.getElementById('project_name').value);
-    const templateTab = document.querySelector('[href="#tab-template"]');
-    if (templateTab) new bootstrap.Tab(templateTab).show();
-}
-
-document.getElementById('generatorForm').addEventListener('submit', function() {
-    const req  = document.getElementById('requirements').value.trim();
-    const cols = document.querySelector('textarea[name="columns_spec"]') ? document.querySelector('textarea[name="columns_spec"]').value.trim() : '';
-    const tmpl = document.querySelector('input[name="use_template"]:checked');
-    if (!req && !cols && !tmpl) return;
-
-    document.getElementById('loadingPanel').style.display = 'block';
-    document.getElementById('submitBtn').disabled = true;
-    document.getElementById('submitBtn').innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Processing...';
-
-    const steps = ['step-1','step-2','step-3','step-4','step-5','step-6','step-7'];
-    let i = 0;
-    const interval = setInterval(() => {
-        if (i > 0) {
-            const prev = document.getElementById(steps[i-1]);
-            prev.classList.remove('text-secondary');
-            prev.classList.add('text-success', 'fw-bold');
-        }
-        if (i < steps.length) {
-            const curr = document.getElementById(steps[i]);
-            curr.classList.remove('text-secondary');
-            curr.classList.add('text-primary', 'fw-bold');
-            i++;
-        } else {
-            clearInterval(interval);
-        }
-    }, 700);
 });
 
-function clearForm() {
-    document.getElementById('requirements').value = '';
-    document.getElementById('project_name').value = '';
+function selectSpecification(spec) {
+    selectedSpec = spec;
+
+    document.querySelectorAll('.spec-card').forEach(card => {
+        card.classList.remove('border-purple', 'bg-light');
+        card.classList.add('border');
+    });
+
+    const activeCard = document.getElementById(`spec-card-${spec}`);
+    if (activeCard) {
+        activeCard.classList.remove('border');
+        activeCard.classList.add('border-purple', 'bg-light');
+    }
+
+    const instancePanel = document.getElementById('instanceConfigPanel');
+    instancePanel.classList.remove('d-none');
+    document.getElementById('activeSpecBadge').textContent = spec.toUpperCase();
+
+    const hostLabel = document.getElementById('hostLabel');
+    const portCol = document.getElementById('portFieldCol');
+    const serviceCol = document.getElementById('serviceFieldCol');
+    const userCol = document.getElementById('userFieldCol');
+    const passCol = document.getElementById('passFieldCol');
+    const hostInput = document.getElementById('connHost');
+
+    portCol.classList.add('d-none');
+    serviceCol.classList.add('d-none');
+
+    if (spec === 'sqlserver') {
+        hostLabel.textContent = "Server / Instance Name";
+        hostInput.value = "{{ default_instance }}";
+    } else if (spec === 'mysql') {
+        hostLabel.textContent = "MySQL Host";
+        hostInput.value = "localhost";
+        portCol.classList.remove('d-none');
+        document.getElementById('connPort').value = "3306";
+    } else if (spec === 'oracle') {
+        hostLabel.textContent = "Oracle Host";
+        hostInput.value = "localhost";
+        portCol.classList.remove('d-none');
+        serviceCol.classList.remove('d-none');
+        document.getElementById('connPort').value = "1521";
+        document.getElementById('connService').value = "XE";
+    } else if (spec === 'mongodb') {
+        hostLabel.textContent = "Connection URI";
+        hostInput.value = "mongodb://localhost:27017";
+    } else if (spec === 'excel') {
+        hostLabel.textContent = "Excel Local Workspace Directory";
+        hostInput.value = "static/generated_databases/excel_workbooks";
+    }
 }
 
-const logsPanel = document.getElementById('logs-panel');
-if (logsPanel) {
-    logsPanel.scrollIntoView({ behavior: 'smooth' });
+async function testConnection() {
+    const resDiv = document.getElementById('testConnResult');
+    resDiv.classList.remove('d-none');
+    resDiv.className = "alert alert-info mt-3 small";
+    resDiv.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i> Testing connection...';
+
+    const config = {
+        host: document.getElementById('connHost').value ? document.getElementById('connHost').value.trim() : '',
+        port: document.getElementById('connPort').value,
+        service: document.getElementById('connService').value,
+        username: document.getElementById('connUser').value,
+        password: document.getElementById('connPass').value,
+        connection_uri: document.getElementById('connHost').value,
+        instance_name: document.getElementById('connHost').value
+    };
+
+    try {
+        const response = await fetch('/api/test-connection', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ db_type: selectedSpec, config: config })
+        });
+        const data = await response.json();
+
+        if (data.success) {
+            resDiv.className = "alert alert-success mt-3 small fw-bold";
+            resDiv.innerHTML = `<i class="fa-solid fa-circle-check me-2"></i> ✓ Connection Successful! ${data.message}`;
+        } else {
+            resDiv.className = "alert alert-danger mt-3 small";
+            resDiv.innerHTML = `<i class="fa-solid fa-circle-xmark me-2"></i> ✗ Connection Failed: ${data.message}`;
+        }
+    } catch (err) {
+        resDiv.className = "alert alert-danger mt-3 small";
+        resDiv.innerHTML = `<i class="fa-solid fa-triangle-exclamation me-2"></i> Error testing connection: ${err.message}`;
+    }
+}
+
+async function confirmInstanceConfig() {
+    document.getElementById('chatAssistantWindow').classList.remove('d-none');
+    document.getElementById('activeSpecTag').textContent = selectedSpec.toUpperCase();
+
+    await fetch('/api/db-create-chat/state', { method: 'POST' });
+
+    const config = {
+        host: document.getElementById('connHost').value,
+        port: document.getElementById('connPort').value,
+        service: document.getElementById('connService').value,
+        username: document.getElementById('connUser').value,
+        password: document.getElementById('connPass').value,
+        connection_uri: document.getElementById('connHost').value,
+        instance_name: document.getElementById('connHost').value
+    };
+
+    sendMessage('', 'select_spec', selectedSpec, config);
+}
+
+async function sendMessage(text, actionValue, specOverride, configOverride) {
+    const inputEl = document.getElementById('userInput');
+    const msg = (text !== undefined) ? text : inputEl.value.trim();
+
+    if (msg) {
+        appendUserMessage(msg);
+        inputEl.value = '';
+    }
+
+    document.getElementById('actionButtonsContainer').innerHTML = '';
+    const typingId = showTypingIndicator();
+
+    const payload = {
+        message: msg,
+        action: actionValue || '',
+        db_type: specOverride || selectedSpec,
+        config: configOverride || {
+            host: document.getElementById('connHost').value,
+            port: document.getElementById('connPort').value,
+            username: document.getElementById('connUser').value,
+            password: document.getElementById('connPass').value
+        }
+    };
+
+    try {
+        const res = await fetch('/api/db-create-chat/message', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        removeTypingIndicator(typingId);
+
+        if (data.database_name) {
+            activeDatabaseName = data.database_name;
+        }
+
+        if (data.redirect) {
+            window.location.href = data.redirect;
+            return;
+        }
+
+        if (data.error) {
+            appendAiMessage('Error: ' + data.error);
+        } else {
+            appendAiMessage(data.ai_message, data.buttons, data.actions, data.show_file_picker);
+        }
+    } catch (err) {
+        removeTypingIndicator(typingId);
+        appendAiMessage('Communication error: ' + err.message);
+    }
+}
+
+function appendAiMessage(text, buttons, actions, showFilePicker) {
+    const list = document.getElementById('chatMessagesList');
+    const msgDiv = document.createElement('div');
+    msgDiv.className = 'd-flex gap-3 align-items-start';
+
+    let formattedText = (text || '').replace(/\n/g, '<br>');
+    formattedText = formattedText.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+
+    let filePickerHtml = '';
+    if (showFilePicker || (text && text.includes('File Upload Mode Selected'))) {
+        filePickerHtml = `
+            <div class="card p-3 border border-purple bg-white rounded-3 mt-3 shadow-sm text-start" style="display: block !important;">
+                <h6 class="fw-bold text-dark mb-2"><i class="fa-solid fa-file-import text-purple me-2"></i>Select Data File for Database "${activeDatabaseName}"</h6>
+                <p class="text-secondary small mb-3">Upload your <strong>.CSV</strong>, <strong>.XLSX</strong>, or <strong>.JSON</strong> file. SMART DB will display a data preview table and allow you to give an AI prompt to extract your database.</p>
+                
+                <div class="mb-3">
+                    <label class="form-label text-dark small fw-bold">Choose File (.csv, .xlsx, .json)</label>
+                    <input type="file" id="dbBuildFileInput" class="form-control bg-white text-dark border" accept=".csv,.xlsx,.xls,.json" onchange="handleFileSelectForPreview()">
+                </div>
+
+                <div id="filePreviewContainer" class="d-none mt-3"></div>
+            </div>
+        `;
+    }
+
+    msgDiv.innerHTML = `
+        <div class="avatar bg-purple text-white rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style="width:38px; height:38px;">
+            <i class="fa-solid fa-robot"></i>
+        </div>
+        <div class="bg-white p-3 rounded-3 border text-dark flex-grow-1" style="max-width:88%; line-height:1.6; font-size:0.95rem;">
+            ${formattedText}
+            ${filePickerHtml}
+        </div>
+    `;
+
+    list.appendChild(msgDiv);
+    scrollChatToBottom();
+
+    const btnContainer = document.getElementById('actionButtonsContainer');
+    btnContainer.innerHTML = '';
+
+    if (actions && actions.length) {
+        actions.forEach(act => {
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'btn btn-outline-purple py-2 px-3 fw-semibold text-start me-2 mb-2';
+            b.innerHTML = `<i class="fa-solid ${act.icon || 'fa-arrow-right'} me-2 text-purple"></i>${act.label}`;
+            b.onclick = () => sendMessage(act.label, act.id);
+            btnContainer.appendChild(b);
+        });
+    }
+
+    if (buttons && buttons.length) {
+        buttons.forEach(btn => {
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.className = `btn ${btn.class || 'btn-outline-purple'} py-2 px-3 fw-semibold me-2 mb-2`;
+            b.innerHTML = btn.label;
+            b.onclick = () => sendMessage(btn.value, btn.action || btn.value);
+            btnContainer.appendChild(b);
+        });
+    }
+}
+
+async function handleFileSelectForPreview() {
+    const fileInput = document.getElementById('dbBuildFileInput');
+    const container = document.getElementById('filePreviewContainer');
+    if (!fileInput || !fileInput.files.length) return;
+
+    container.classList.remove('d-none');
+    container.innerHTML = '<div class="alert alert-info small m-0"><i class="fa-solid fa-spinner fa-spin me-2"></i> Reading file data preview...</div>';
+
+    const formData = new FormData();
+    formData.append('file', fileInput.files[0]);
+
+    try {
+        const res = await fetch('/api/db-create-chat/preview-file', {
+            method: 'POST',
+            body: formData
+        });
+        const data = await res.json();
+
+        if (!data.success) {
+            container.innerHTML = `<div class="alert alert-danger small m-0"><i class="fa-solid fa-circle-xmark me-2"></i> ${data.message}</div>`;
+            return;
+        }
+
+        activeParsedFile = data;
+
+        // Build HTML for data preview table
+        let tableHeader = '';
+        data.columns.forEach(col => {
+            tableHeader += `<th class="small font-monospace">${col}</th>`;
+        });
+
+        let tableBody = '';
+        if (data.preview && data.preview.length) {
+            data.preview.forEach(row => {
+                let rowCells = '';
+                data.columns.forEach(col => {
+                    rowCells += `<td class="small text-truncate" style="max-width:140px;">${row[col] !== undefined ? row[col] : ''}</td>`;
+                });
+                tableBody += `<tr>${rowCells}</tr>`;
+            });
+        }
+
+        container.innerHTML = `
+            <div class="card p-3 bg-light border rounded-3 mb-3">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <span class="fw-bold text-dark"><i class="fa-solid fa-table me-1 text-purple"></i> File Data Preview: ${data.file_name}</span>
+                    <span class="badge bg-purple text-white">${data.total_rows} Total Rows • ${data.columns.length} Columns</span>
+                </div>
+
+                <div class="table-responsive bg-white border rounded mb-3" style="max-height: 220px; overflow-y: auto;">
+                    <table class="table table-sm table-striped table-hover m-0 align-middle">
+                        <thead class="table-secondary"><tr>${tableHeader}</tr></thead>
+                        <tbody>${tableBody}</tbody>
+                    </table>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label text-dark fw-bold small"><i class="fa-solid fa-wand-magic-sparkles text-purple me-1"></i> AI Prompt: What database tables &amp; fields do you need from this file?</label>
+                    <textarea id="fileAiPromptInput" class="form-control bg-white text-dark border" rows="2" 
+                              placeholder='e.g. "Create Patients and Billing tables, extract only active records with age > 18..."'></textarea>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label text-dark small fw-bold">Table / Collection Name (Optional)</label>
+                    <input type="text" id="dbBuildTableNameInput" class="form-control bg-white text-dark border" placeholder="e.g. Patients, Orders, Staff..." value="${data.file_name.split('.')[0]}">
+                </div>
+
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-purple flex-fill fw-semibold" onclick="submitAiFileBuild(false)">
+                        <i class="fa-solid fa-wand-magic-sparkles me-1"></i> Build Database With AI Prompt
+                    </button>
+                    <button type="button" class="btn btn-outline-cyan fw-semibold" onclick="submitAiFileBuild(true)">
+                        <i class="fa-solid fa-bolt me-1"></i> Import Entire File
+                    </button>
+                </div>
+
+                <div id="fileUploadStatus" class="mt-2 d-none"></div>
+            </div>
+        `;
+
+        scrollChatToBottom();
+    } catch (err) {
+        container.innerHTML = `<div class="alert alert-danger small m-0"><i class="fa-solid fa-triangle-exclamation me-2"></i> Error previewing file: ${err.message}</div>`;
+    }
+}
+
+async function submitAiFileBuild(importFull) {
+    if (!activeParsedFile) {
+        alert("Please select a file to preview first.");
+        return;
+    }
+
+    const promptInput = document.getElementById('fileAiPromptInput');
+    const tblInput = document.getElementById('dbBuildTableNameInput');
+    const statusDiv = document.getElementById('fileUploadStatus');
+
+    const promptText = importFull ? '' : (promptInput ? promptInput.value.trim() : '');
+    const tableName = tblInput ? tblInput.value.trim() : '';
+
+    if (statusDiv) {
+        statusDiv.classList.remove('d-none');
+        statusDiv.className = "alert alert-info small mt-2 m-0";
+        statusDiv.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i> Processing file with AI, constructing database schema &amp; importing dataset...';
+    }
+
+    const payload = {
+        file_path: activeParsedFile.file_path,
+        db_type: selectedSpec,
+        db_name: activeDatabaseName || 'SmartDB_Project',
+        table_name: tableName,
+        prompt: promptText
+    };
+
+    try {
+        const res = await fetch('/api/db-create-chat/build-from-file-ai', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        let data;
+        const contentType = res.headers.get("content-type");
+        if (contentType && contentType.indexOf("application/json") !== -1) {
+            data = await res.json();
+        } else {
+            const rawText = await res.text();
+            data = { success: false, message: "Server response error: " + rawText.substring(0, 150) };
+        }
+
+        if (data.success) {
+            if (statusDiv) {
+                statusDiv.className = "alert alert-success small mt-2 m-0 fw-bold";
+                statusDiv.innerHTML = `<i class="fa-solid fa-circle-check me-2"></i> ${data.message}`;
+            }
+            setTimeout(() => {
+                window.location.href = data.redirect;
+            }, 1200);
+        } else {
+            if (statusDiv) {
+                statusDiv.className = "alert alert-danger small mt-2 m-0";
+                statusDiv.innerHTML = `<i class="fa-solid fa-circle-xmark me-2"></i> ${data.message}`;
+            }
+        }
+    } catch (err) {
+        if (statusDiv) {
+            statusDiv.className = "alert alert-danger small mt-2 m-0";
+            statusDiv.innerHTML = `<i class="fa-solid fa-triangle-exclamation me-2"></i> Build failed: ${err.message}`;
+        }
+    }
+}
+
+function appendUserMessage(text) {
+    const list = document.getElementById('chatMessagesList');
+    const msgDiv = document.createElement('div');
+    msgDiv.className = 'd-flex gap-3 align-items-start justify-content-end';
+
+    const formattedText = text.replace(/\n/g, '<br>');
+
+    msgDiv.innerHTML = `
+        <div class="bg-purple text-white p-3 rounded-3 shadow-sm flex-grow-1 text-end" style="max-width:75%; line-height:1.6; font-size:0.95rem;">
+            ${formattedText}
+        </div>
+        <div class="avatar bg-secondary text-white rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style="width:38px; height:38px;">
+            <i class="fa-solid fa-user"></i>
+        </div>
+    `;
+
+    list.appendChild(msgDiv);
+    scrollChatToBottom();
+}
+
+function showTypingIndicator() {
+    const list = document.getElementById('chatMessagesList');
+    const id = 'typing-' + Date.now();
+    const msgDiv = document.createElement('div');
+    msgDiv.id = id;
+    msgDiv.className = 'd-flex gap-3 align-items-center';
+
+    msgDiv.innerHTML = `
+        <div class="avatar bg-purple text-white rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style="width:38px; height:38px;">
+            <i class="fa-solid fa-robot"></i>
+        </div>
+        <div class="bg-white p-3 rounded-3 border text-secondary small">
+            <span class="spinner-grow spinner-grow-sm text-purple me-1" role="status"></span>
+            AI Assistant processing...
+        </div>
+    `;
+
+    list.appendChild(msgDiv);
+    scrollChatToBottom();
+    return id;
+}
+
+function removeTypingIndicator(id) {
+    const el = document.getElementById(id);
+    if (el) el.remove();
+}
+
+function scrollChatToBottom() {
+    const body = document.getElementById('chatBody');
+    body.scrollTop = body.scrollHeight;
+}
+
+function resetWorkflow() {
+    document.getElementById('instanceConfigPanel').classList.add('d-none');
+    document.getElementById('chatAssistantWindow').classList.add('d-none');
+    selectSpecification('sqlserver');
 }
 </script>
 {% endblock %}

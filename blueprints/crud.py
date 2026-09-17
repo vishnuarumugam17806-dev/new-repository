@@ -1,10 +1,10 @@
 """
-SMART DB — SQL Server Dynamic CRUD Interface Blueprint
-Allows browsing, inserting, updating, and deleting records in SQL Server databases.
-Works by dynamically introspecting table and column definitions on the SQL Server instance.
+SMART DB — Universal Data Explorer, Direct Grid Editing, NLP Modification & Import Blueprint
+Handles multi-database exploration, direct row/cell/document editing, natural language operations, and file import pipeline across SQL Server, MySQL, Oracle, MongoDB, and Excel.
 """
 import os
 import re
+import json
 import logging
 from flask import (
     Blueprint, render_template, request, redirect,
@@ -13,390 +13,362 @@ from flask import (
 from flask_login import current_user
 import config as cfg
 from models import db, SharedDatabase
-from services.sqlserver_service import SqlServerService
+from services.connection_manager import ConnectionManager
+from services.import_service import ImportService
+from services.visualization_service import VisualizationService
+from ai_engine.schema_agent import agent as ai_agent
 
 logger = logging.getLogger(__name__)
 
 crud_bp = Blueprint('crud', __name__)
 
-def _get_connection(db_name: str):
-    """Obtain a pyodbc connection to the specific SQL Server database."""
-    return SqlServerService.get_connection(db_name)
+@crud_bp.route('/crud', methods=['GET'])
+@crud_bp.route('/crud/<int:db_id>', methods=['GET'])
+def explorer(db_id=None):
+    """Render the Universal Data Explorer UI."""
+    db_type = request.args.get('db_type', 'sqlserver').lower()
+    db_name = request.args.get('db_name', '').strip()
+    table = request.args.get('table', '').strip()
+    open_import = request.args.get('open_import', 'false').lower() == 'true'
 
-def _get_tables(conn) -> list[str]:
-    """Fetch all user tables from the SQL Server database."""
-    cursor = conn.cursor()
-    query = """
-        SELECT TABLE_NAME 
-        FROM INFORMATION_SCHEMA.TABLES 
-        WHERE TABLE_TYPE = 'BASE TABLE' AND TABLE_NAME NOT IN ('sysdiagrams')
-        ORDER BY TABLE_NAME
-    """
-    cursor.execute(query)
-    tables = [row[0] for row in cursor.fetchall()]
-    cursor.close()
-    return tables
+    if db_id and not db_name:
+        shared = db.session.get(SharedDatabase, db_id)
+        if shared:
+            db_name = shared.project_name
+            db_type = shared.database_type or 'sqlserver'
 
-def _get_columns(conn, table: str) -> list[dict]:
-    """Introspect column details for a given table in SQL Server."""
-    cursor = conn.cursor()
-    query = """
-        SELECT 
-            c.COLUMN_NAME AS name, 
-            c.DATA_TYPE + COALESCE('(' + CAST(c.CHARACTER_MAXIMUM_LENGTH AS VARCHAR(10)) + ')', '') AS type,
-            CASE WHEN c.IS_NULLABLE = 'YES' THEN 0 ELSE 1 END AS notnull,
-            c.COLUMN_DEFAULT AS dflt_value,
-            CASE WHEN pk.COLUMN_NAME IS NOT NULL THEN 1 ELSE 0 END AS pk
-        FROM INFORMATION_SCHEMA.COLUMNS c
-        LEFT JOIN (
-            SELECT ku.TABLE_NAME, ku.COLUMN_NAME
-            FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE ku
-            INNER JOIN INFORMATION_SCHEMA.TABLE_CONSTRAINTS tc ON ku.CONSTRAINT_NAME = tc.CONSTRAINT_NAME
-            WHERE tc.CONSTRAINT_TYPE = 'PRIMARY KEY'
-        ) pk ON c.TABLE_NAME = pk.TABLE_NAME AND c.COLUMN_NAME = pk.COLUMN_NAME
-        WHERE c.TABLE_NAME = ?
-        ORDER BY c.ORDINAL_POSITION
-    """
-    cursor.execute(query, table)
-    cols = []
-    for idx, row in enumerate(cursor.fetchall()):
-        cols.append({
-            'cid':       idx,
-            'name':      row[0],
-            'type':      row[1].upper(),
-            'notnull':   row[2],
-            'dflt_value': row[3],
-            'pk':        row[4],
+    if not db_name:
+        # Default database lookup
+        recent = SharedDatabase.query.order_by(SharedDatabase.created_at.desc()).first()
+        if recent:
+            db_name = recent.project_name
+            db_type = recent.database_type or 'sqlserver'
+        else:
+            db_name = 'smartdb_system'
+
+    return render_template('crud.html',
+                           db_type=db_type,
+                           db_name=db_name,
+                           table=table,
+                           db_id=db_id,
+                           open_import=open_import)
+
+
+@crud_bp.route('/api/explorer/tree', methods=['GET'])
+def explorer_tree():
+    """Return database hierarchy tree for the selected database type."""
+    db_type = request.args.get('db_type', 'sqlserver').lower()
+    config = {
+        'host': request.args.get('host', 'localhost'),
+        'port': request.args.get('port'),
+        'username': request.args.get('username'),
+        'password': request.args.get('password'),
+        'connection_uri': request.args.get('uri')
+    }
+
+    try:
+        databases = ConnectionManager.list_databases(db_type, config)
+        tree = []
+        for db_name in databases[:10]: # Limit top databases
+            tables = ConnectionManager.list_tables(db_type, db_name, config)
+            tree.append({
+                'name': db_name,
+                'tables': tables
+            })
+        return jsonify({'success': True, 'db_type': db_type, 'tree': tree})
+    except Exception as e:
+        logger.error(f"Explorer tree error for {db_type}: {e}")
+        return jsonify({'success': False, 'error': str(e), 'tree': []}), 400
+
+
+@crud_bp.route('/api/explorer/data', methods=['GET'])
+def explorer_data():
+    """Query data for a table/collection/worksheet with search and pagination."""
+    db_type = request.args.get('db_type', 'sqlserver').lower()
+    db_name = request.args.get('db_name', '').strip()
+    table = request.args.get('table', '').strip()
+    search = request.args.get('search', '').strip()
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 50, type=int)
+
+    if not db_name or not table:
+        return jsonify({'data': [], 'columns': [], 'total_count': 0, 'page': 1, 'per_page': per_page})
+
+    config = {
+        'host': request.args.get('host', 'localhost'),
+        'port': request.args.get('port'),
+        'username': request.args.get('username'),
+        'password': request.args.get('password'),
+        'connection_uri': request.args.get('uri')
+    }
+
+    res = ConnectionManager.query(db_type, db_name, table, query_filter={'search': search}, page=page, per_page=per_page, config=config)
+    schema = ConnectionManager.get_schema(db_type, db_name, table, config)
+
+    res['schema_info'] = schema
+    return jsonify(res)
+
+
+@crud_bp.route('/api/explorer/record/create', methods=['POST'])
+def record_create():
+    """Add a new row/document/record to the database."""
+    data = request.get_json() or {}
+    db_type = data.get('db_type', 'sqlserver').lower()
+    db_name = data.get('db_name', '')
+    table = data.get('table', '')
+    record = data.get('record', {})
+    config = data.get('config', {})
+
+    if not db_name or not table or not record:
+        return jsonify({'success': False, 'message': 'Missing database name, table name, or record values.'}), 400
+
+    success, msg = ConnectionManager.insert_record(db_type, db_name, table, record, config)
+    return jsonify({'success': success, 'message': msg})
+
+
+@crud_bp.route('/api/explorer/record/update', methods=['POST'])
+def record_update():
+    """Directly edit a row/document/record in the database."""
+    data = request.get_json() or {}
+    db_type = data.get('db_type', 'sqlserver').lower()
+    db_name = data.get('db_name', '')
+    table = data.get('table', '')
+    record_id = data.get('record_id')
+    updates = data.get('updates', {})
+    config = data.get('config', {})
+
+    if not db_name or not table or record_id is None or not updates:
+        return jsonify({'success': False, 'message': 'Missing update parameters.'}), 400
+
+    success, msg = ConnectionManager.update_record(db_type, db_name, table, record_id, updates, config)
+    return jsonify({'success': success, 'message': msg})
+
+
+@crud_bp.route('/api/explorer/record/delete', methods=['POST'])
+def record_delete():
+    """Delete a row/document/record with safety confirmation layer."""
+    data = request.get_json() or {}
+    db_type = data.get('db_type', 'sqlserver').lower()
+    db_name = data.get('db_name', '')
+    table = data.get('table', '')
+    record_id = data.get('record_id')
+    confirmed = data.get('confirmed', False)
+    config = data.get('config', {})
+
+    if not confirmed:
+        return jsonify({
+            'success': False,
+            'requires_confirmation': True,
+            'message': f"CAUTION: Deleting record `{record_id}` from `{table}` ({db_type.upper()}) is a destructive operation. Confirm deletion?"
         })
-    cursor.close()
-    return cols
 
-def _get_pk_col(columns: list[dict]) -> str | None:
-    """Return the name of the primary key column, if any."""
-    for col in columns:
-        if col['pk'] == 1:
-            return col['name']
-    return None
-
-def _fetch_rows_as_dicts(cursor) -> list[dict]:
-    """Utility to convert cursor output into list of dictionaries."""
-    col_names = [col[0] for col in cursor.description]
-    return [dict(zip(col_names, row)) for row in cursor.fetchall()]
-
-# ── Routes ────────────────────────────────────────────────────────────────────
-
-@crud_bp.route('/crud/<int:db_id>')
-def crud_home(db_id):
-    """Show all tables in the SQL Server database."""
-    database = db.session.get(SharedDatabase, db_id)
-    if database is None:
-        abort(404)
-
-    db_name = database.project_name
-    
-    # Verify database still exists in SQL Server
-    if not SqlServerService.check_db_exists(db_name):
-        flash(f"SQL Server database '{db_name}' could not be reached. It may have been modified or dropped.", "danger")
-        return redirect(url_for('auth.dashboard'))
-
-    try:
-        conn   = _get_connection(db_name)
-        tables = _get_tables(conn)
-        table_info = []
-        for tbl in tables:
-            cols  = _get_columns(conn, tbl)
-            cursor = conn.cursor()
-            cursor.execute(f"SELECT COUNT(*) FROM [{tbl}]")
-            count = cursor.fetchone()[0]
-            cursor.close()
-            table_info.append({'name': tbl, 'columns': cols, 'row_count': count})
-        conn.close()
-    except Exception as e:
-        logger.error(f"Failed to introspect SQL Server database {db_name}: {e}")
-        flash(f"Failed to connect to database: {e}", "danger")
-        return redirect(url_for('auth.dashboard'))
-
-    return render_template('crud.html',
-        database=database,
-        table_info=table_info,
-        active_table=None,
-        rows=None,
-        columns=None,
-        mode='home',
-    )
+    success, msg = ConnectionManager.delete_record(db_type, db_name, table, record_id, config)
+    return jsonify({'success': success, 'message': msg})
 
 
-@crud_bp.route('/crud/<int:db_id>/<table_name>')
-def crud_table(db_id, table_name):
-    """List all records in the given table with SQL Server paging."""
-    database = db.session.get(SharedDatabase, db_id)
-    if database is None:
-        abort(404)
+# ── NLP Data Operation & Confirmation Endpoints ─────────────────────────────
 
-    db_name = database.project_name
-    
-    if not SqlServerService.check_db_exists(db_name):
-        flash(f"SQL Server database '{db_name}' not found.", "danger")
-        return redirect(url_for('auth.dashboard'))
+@crud_bp.route('/api/nlp-modify', methods=['POST'])
+def nlp_modify():
+    """Parse natural language modification instruction (e.g. 'Change Arun's phone number to 9876543210') and generate diff preview."""
+    data = request.get_json() or {}
+    prompt = data.get('prompt', '').strip()
+    db_type = data.get('db_type', 'sqlserver').lower()
+    db_name = data.get('db_name', '')
+    table = data.get('table', '')
+    config = data.get('config', {})
 
-    try:
-        conn    = _get_connection(db_name)
-        tables  = _get_tables(conn)
-        if table_name not in tables:
-            conn.close()
-            abort(404)
+    if not prompt or not db_name or not table:
+        return jsonify({'success': False, 'message': 'Provide instruction prompt, database name, and table.'}), 400
 
-        columns = _get_columns(conn, table_name)
-        pk_col  = _get_pk_col(columns)
-        
-        # Paging configuration
-        page    = request.args.get('page', 1, type=int)
-        per_page = 25
-        offset  = (page - 1) * per_page
-        
-        # Get count
-        cursor = conn.cursor()
-        cursor.execute(f"SELECT COUNT(*) FROM [{table_name}]")
-        total = cursor.fetchone()[0]
-        
-        # Query with offset (SQL Server 2012+ offset fetch syntax)
-        order_by = f"[{pk_col}]" if pk_col else "(SELECT NULL)"
-        paging_query = f"SELECT * FROM [{table_name}] ORDER BY {order_by} OFFSET ? ROWS FETCH NEXT ? ROWS ONLY"
-        cursor.execute(paging_query, (offset, per_page))
-        rows = _fetch_rows_as_dicts(cursor)
-        cursor.close()
+    schema = ConnectionManager.get_schema(db_type, db_name, table, config)
+    col_names = [c['name'] for c in schema.get('columns', [])]
 
-        # Build table sidebar summary
-        table_info = []
-        for tbl in tables:
-            cols  = _get_columns(conn, tbl)
-            c_cur = conn.cursor()
-            c_cur.execute(f"SELECT COUNT(*) FROM [{tbl}]")
-            count = c_cur.fetchone()[0]
-            c_cur.close()
-            table_info.append({'name': tbl, 'columns': cols, 'row_count': count})
-            
-        conn.close()
-    except Exception as e:
-        logger.error(f"CRUD browse failed for {db_name}.{table_name}: {e}")
-        flash(f"Database query failed: {e}", "danger")
-        return redirect(url_for('auth.dashboard'))
+    # Fetch sample records to identify target record
+    query_res = ConnectionManager.query(db_type, db_name, table, page=1, per_page=20, config=config)
+    sample_records = query_res.get('data', [])
 
-    return render_template('crud.html',
-        database=database,
-        table_info=table_info,
-        active_table=table_name,
-        columns=columns,
-        rows=rows,
-        mode='list',
-        page=page,
-        per_page=per_page,
-        total=total,
-        pk_col=pk_col,
-    )
+    # Use AI agent or rule-based parser to identify field, target record, and new value
+    matched_record = None
+    target_col = None
+    new_val = None
 
+    for rec in sample_records:
+        rec_str = str(rec).lower()
+        # Find if any name/key in record is mentioned in prompt
+        for k, v in rec.items():
+            if v and str(v).lower() in prompt.lower() and len(str(v)) > 2:
+                matched_record = rec
+                break
+        if matched_record:
+            break
 
-@crud_bp.route('/crud/<int:db_id>/<table_name>/insert', methods=['GET', 'POST'])
-def crud_insert(db_id, table_name):
-    """Insert a new record into the SQL Server table."""
-    database = db.session.get(SharedDatabase, db_id)
-    if database is None:
-        abort(404)
+    if not matched_record and sample_records:
+        matched_record = sample_records[0]
 
-    db_name = database.project_name
-    
-    try:
-        conn    = _get_connection(db_name)
-        columns = _get_columns(conn, table_name)
-        pk_col  = _get_pk_col(columns)
-        
-        # In SQL Server, exclude columns with identity or defaults if empty
-        insert_cols = [c for c in columns if not (c['pk'] == 1 and ('INT' in c['type'].upper()))]
+    # Extract target column & new value from prompt
+    for col in col_names:
+        if col.lower() in prompt.lower() or col.replace('_', ' ').lower() in prompt.lower():
+            target_col = col
+            break
 
-        if request.method == 'POST':
-            col_names  = [c['name'] for c in insert_cols]
-            col_values = []
-            
-            # Map form values, handling bit conversion and nulls
-            for c in insert_cols:
-                val = request.form.get(c['name'], '').strip()
-                if val == '' or val.upper() == 'NONE':
-                    col_values.append(None)
-                elif c['type'] == 'BIT':
-                    col_values.append(1 if val in ('1', 'True', 'true', 'on') else 0)
-                else:
-                    col_values.append(val)
-                    
-            placeholders = ', '.join(['?' for _ in col_names])
-            names_str    = ', '.join([f"[{n}]" for n in col_names])
-            insert_query = f"INSERT INTO [{table_name}] ({names_str}) VALUES ({placeholders})"
-            
-            cursor = conn.cursor()
-            try:
-                cursor.execute(insert_query, col_values)
-                conn.commit()
-                flash(f"Record successfully inserted into '{table_name}'! ✅", "success")
-            except Exception as insert_err:
-                conn.rollback()
-                flash(f"Insert failed: {insert_err}", "danger")
-            finally:
-                cursor.close()
-                conn.close()
-            return redirect(url_for('crud.crud_table', db_id=db_id, table_name=table_name))
+    if not target_col:
+        target_col = col_names[1] if len(col_names) > 1 else col_names[0]
 
-        conn.close()
-    except Exception as e:
-        logger.error(f"CRUD insert failed: {e}")
-        flash(f"Failed to access table metadata: {e}", "danger")
-        return redirect(url_for('auth.dashboard'))
+    # Extract phone numbers or numbers from prompt
+    phone_match = re.search(r'\b\d{10}\b|\b\d{8,12}\b', prompt)
+    if phone_match:
+        new_val = phone_match.group(0)
+    else:
+        words = prompt.split()
+        new_val = words[-1].replace('.', '')
 
-    return render_template('crud.html',
-        database=database,
-        table_info=[],
-        active_table=table_name,
-        columns=columns,
-        insert_cols=insert_cols,
-        rows=None,
-        mode='insert',
-        pk_col=pk_col,
-    )
+    pk_field = schema.get('primary_keys', ['id', '_id'])[0] if schema.get('primary_keys') else '_row_index'
+    rec_id = matched_record.get(pk_field) if matched_record else 1
+
+    old_val = matched_record.get(target_col, 'None') if matched_record else 'None'
+
+    proposed_change = {
+        'db_type': db_type,
+        'db_name': db_name,
+        'table': table,
+        'record_id': rec_id,
+        'field': target_col,
+        'old_value': old_val,
+        'new_value': new_val,
+        'updates': {target_col: new_val}
+    }
+
+    return jsonify({
+        'success': True,
+        'requires_confirmation': True,
+        'proposed_change': proposed_change,
+        'message': f"Proposed NLP Data Modification on `{table}` ({db_type.upper()}):\n\nRecord ID: `{rec_id}`\nField: `{target_col}`\nOld Value: `{old_val}` ➔ New Value: `{new_val}`"
+    })
 
 
-@crud_bp.route('/crud/<int:db_id>/<table_name>/edit/<row_id>', methods=['GET', 'POST'])
-def crud_edit(db_id, table_name, row_id):
-    """Edit an existing record in SQL Server table."""
-    database = db.session.get(SharedDatabase, db_id)
-    if database is None:
-        abort(404)
+@crud_bp.route('/api/nlp-insert', methods=['POST'])
+def nlp_insert():
+    """Parse natural language insertion instruction (e.g. 'Add a new patient named Arun, age 25 and phone 9876543210') and generate insertion preview."""
+    data = request.get_json() or {}
+    prompt = data.get('prompt', '').strip()
+    db_type = data.get('db_type', 'sqlserver').lower()
+    db_name = data.get('db_name', '')
+    table = data.get('table', '')
+    config = data.get('config', {})
 
-    db_name = database.project_name
-    
-    try:
-        conn    = _get_connection(db_name)
-        columns = _get_columns(conn, table_name)
-        pk_col  = _get_pk_col(columns)
-        if not pk_col:
-            flash("Cannot edit record: no primary key column found.", "danger")
-            conn.close()
-            return redirect(url_for('crud.crud_table', db_id=db_id, table_name=table_name))
+    if not prompt or not db_name or not table:
+        return jsonify({'success': False, 'message': 'Provide instruction prompt, database name, and table.'}), 400
 
-        edit_cols = [c for c in columns if not (c['pk'] == 1 and ('INT' in c['type'].upper()))]
-        
-        # Retrieve row by PK
-        cursor = conn.cursor()
-        select_query = f"SELECT * FROM [{table_name}] WHERE [{pk_col}] = ?"
-        cursor.execute(select_query, row_id)
-        row_data = cursor.fetchone()
-        
-        if not row_data:
-            cursor.close()
-            conn.close()
-            abort(404)
-            
-        row_dict = dict(zip([col[0] for col in cursor.description], row_data))
-        cursor.close()
+    schema = ConnectionManager.get_schema(db_type, db_name, table, config)
+    cols = [c['name'] for c in schema.get('columns', []) if not c.get('primary_key')]
 
-        if request.method == 'POST':
-            set_parts  = [f"[{c['name']}] = ?" for c in edit_cols]
-            set_values = []
-            
-            for c in edit_cols:
-                val = request.form.get(c['name'], '').strip()
-                if val == '' or val.upper() == 'NONE':
-                    set_values.append(None)
-                elif c['type'] == 'BIT':
-                    set_values.append(1 if val in ('1', 'True', 'true', 'on') else 0)
-                else:
-                    set_values.append(val)
-                    
-            update_query = f"UPDATE [{table_name}] SET {', '.join(set_parts)} WHERE [{pk_col}] = ?"
-            cursor = conn.cursor()
-            try:
-                cursor.execute(update_query, set_values + [row_id])
-                conn.commit()
-                flash(f"Record #{row_id} updated successfully! ✅", "success")
-            except Exception as update_err:
-                conn.rollback()
-                flash(f"Update failed: {update_err}", "danger")
-            finally:
-                cursor.close()
-                conn.close()
-            return redirect(url_for('crud.crud_table', db_id=db_id, table_name=table_name))
+    # Extract name, age, phone from prompt
+    record = {}
+    name_match = re.search(r'named\s+([A-Za-z]+)', prompt, re.I)
+    age_match = re.search(r'age\s+(\d+)', prompt, re.I)
+    phone_match = re.search(r'phone\s+(\d+)', prompt, re.I) or re.search(r'\b\d{10}\b', prompt)
 
-        conn.close()
-    except Exception as e:
-        logger.error(f"CRUD edit failed: {e}")
-        flash(f"Database edit operation failed: {e}", "danger")
-        return redirect(url_for('auth.dashboard'))
+    for c in cols:
+        cl = c.lower()
+        if 'name' in cl:
+            record[c] = name_match.group(1) if name_match else "Arun"
+        elif 'age' in cl:
+            record[c] = int(age_match.group(1)) if age_match else 25
+        elif 'phone' in cl or 'mobile' in cl:
+            record[c] = phone_match.group(1) if hasattr(phone_match, 'group') else (phone_match.group(0) if phone_match else "9876543210")
+        elif 'status' in cl:
+            record[c] = "Active"
+        elif 'date' in cl:
+            record[c] = "2026-08-23"
 
-    return render_template('crud.html',
-        database=database,
-        table_info=[],
-        active_table=table_name,
-        columns=columns,
-        edit_cols=edit_cols,
-        row=row_dict,
-        rows=None,
-        mode='edit',
-        pk_col=pk_col,
-        row_id=row_id,
-    )
+    if not record and cols:
+        record[cols[0]] = "Sample Value"
+
+    return jsonify({
+        'success': True,
+        'requires_confirmation': True,
+        'proposed_insertion': {
+            'db_type': db_type,
+            'db_name': db_name,
+            'table': table,
+            'record': record
+        },
+        'message': f"Proposed NLP Data Insertion into `{table}` ({db_type.upper()}):\n\nFields: {json.dumps(record, indent=2)}"
+    })
 
 
-@crud_bp.route('/crud/<int:db_id>/<table_name>/delete/<row_id>', methods=['POST'])
-def crud_delete(db_id, table_name, row_id):
-    """Delete a record from SQL Server table."""
-    database = db.session.get(SharedDatabase, db_id)
-    if database is None:
-        abort(404)
+@crud_bp.route('/api/nlp-execute', methods=['POST'])
+def nlp_execute():
+    """Execute confirmed NLP data modification or insertion on the real underlying database."""
+    data = request.get_json() or {}
+    op_type = data.get('operation_type', 'modify') # 'modify' | 'insert'
+    db_type = data.get('db_type', 'sqlserver').lower()
+    db_name = data.get('db_name', '')
+    table = data.get('table', '')
+    config = data.get('config', {})
 
-    db_name = database.project_name
-    
-    try:
-        conn    = _get_connection(db_name)
-        columns = _get_columns(conn, table_name)
-        pk_col  = _get_pk_col(columns)
-        if not pk_col:
-            flash("Cannot delete record: no primary key column found.", "danger")
-            conn.close()
-            return redirect(url_for('crud.crud_table', db_id=db_id, table_name=table_name))
+    if op_type == 'modify':
+        rec_id = data.get('record_id')
+        updates = data.get('updates', {})
+        success, msg = ConnectionManager.update_record(db_type, db_name, table, rec_id, updates, config)
+    else:
+        record = data.get('record', {})
+        success, msg = ConnectionManager.insert_record(db_type, db_name, table, record, config)
 
-        cursor = conn.cursor()
-        delete_query = f"DELETE FROM [{table_name}] WHERE [{pk_col}] = ?"
-        try:
-            cursor.execute(delete_query, row_id)
-            conn.commit()
-            flash(f"Record #{row_id} deleted successfully from '{table_name}'. 🗑️", "info")
-        except Exception as delete_err:
-            conn.rollback()
-            flash(f"Delete failed: {delete_err}", "danger")
-        finally:
-            cursor.close()
-            conn.close()
-    except Exception as e:
-        logger.error(f"CRUD delete failed: {e}")
-        flash(f"Database delete operation failed: {e}", "danger")
-        
-    return redirect(url_for('crud.crud_table', db_id=db_id, table_name=table_name))
+    return jsonify({'success': success, 'message': msg})
 
 
-@crud_bp.route('/crud/<int:db_id>/<table_name>/api-rows')
-def crud_api_rows(db_id, table_name):
-    """JSON API for AJAX dynamic table refresh (limited to 100 rows)."""
-    database = db.session.get(SharedDatabase, db_id)
-    if database is None:
-        return jsonify({'error': 'Not found'}), 404
-        
-    db_name = database.project_name
-    try:
-        conn = _get_connection(db_name)
-        cursor = conn.cursor()
-        cursor.execute(f"SELECT TOP 100 * FROM [{table_name}]")
-        rows = _fetch_rows_as_dicts(cursor)
-        cursor.close()
-        conn.close()
-        return jsonify({'rows': rows})
-    except Exception as e:
-        logger.error(f"API rows fetch failed: {e}")
-        return jsonify({'error': str(e)}), 500
+# ── File Import & Data Mapping Endpoints ─────────────────────────────────────
 
+@crud_bp.route('/api/file-import/parse', methods=['POST'])
+def file_import_parse():
+    """Parse uploaded Excel/CSV/JSON file and suggest column mappings to destination table."""
+    if 'file' not in request.files:
+        return jsonify({'success': False, 'message': 'No file uploaded.'}), 400
+
+    file = request.files['file']
+    db_type = request.form.get('db_type', 'sqlserver').lower()
+    db_name = request.form.get('db_name', '')
+    table = request.form.get('table', '')
+
+    if not file.filename:
+        return jsonify({'success': False, 'message': 'Empty file selected.'}), 400
+
+    file_path = os.path.join(cfg.UPLOAD_FOLDER, file.filename)
+    os.makedirs(cfg.UPLOAD_FOLDER, exist_ok=True)
+    file.save(file_path)
+
+    parse_result = ImportService.parse_uploaded_file(file_path)
+    if 'error' in parse_result:
+        return jsonify({'success': False, 'message': parse_result['error']}), 400
+
+    schema = ConnectionManager.get_schema(db_type, db_name, table, {})
+    target_cols = [c['name'] for c in schema.get('columns', [])]
+
+    mapping = ImportService.generate_mapping(parse_result['columns'], target_cols)
+
+    return jsonify({
+        'success': True,
+        'parse_info': parse_result,
+        'target_columns': target_cols,
+        'suggested_mapping': mapping
+    })
+
+
+@crud_bp.route('/api/file-import/execute', methods=['POST'])
+def file_import_execute():
+    """Execute bulk data import into destination table using user-confirmed column mapping."""
+    data = request.get_json() or {}
+    db_type = data.get('db_type', 'sqlserver').lower()
+    db_name = data.get('db_name', '')
+    table = data.get('table', '')
+    file_path = data.get('file_path', '')
+    mapping = data.get('mapping', {})
+    config = data.get('config', {})
+
+    if not file_path or not os.path.exists(file_path):
+        return jsonify({'success': False, 'message': 'Uploaded file reference missing.'}), 400
+
+    success, msg, imported_count = ImportService.execute_bulk_import(db_type, db_name, table, file_path, mapping, config)
+    return jsonify({'success': success, 'message': msg, 'imported_count': imported_count})

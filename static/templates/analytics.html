@@ -1,82 +1,95 @@
 {% extends 'base.html' %}
-{% block title %}System Analytics — SMART DB{% endblock %}
+{% block title %}System Analytics & Multi-Database Dashboard — SMART DB{% endblock %}
 
 {% block content %}
 <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-3">
     <div>
-        <h1 class="fw-bold text-dark mb-1 fs-3"><i class="fa-solid fa-chart-line text-icon-pink me-2"></i>System Analytics &amp; Reports</h1>
-        <p class="text-secondary mb-0 small">Platform usage metrics, generation velocity, and industry distribution insights</p>
+        <h1 class="fw-bold text-dark mb-1 fs-3"><i class="fa-solid fa-chart-line text-icon-pink me-2"></i>Database Management Dashboard &amp; System Analytics</h1>
+        <p class="text-secondary mb-0 small">Platform usage metrics, multi-database breakdown, and query performance insights</p>
     </div>
     <div class="d-flex gap-2">
-        <span class="badge-green"><i class="fa-solid fa-circle-check me-1 text-icon-green"></i> Live Data Feed</span>
-        <a href="/create" class="btn btn-purple btn-sm px-3"><i class="fa-solid fa-plus me-1"></i> Generate Schema</a>
+        <span class="badge-green"><i class="fa-solid fa-circle-check me-1 text-icon-green"></i> Live Connection Monitoring</span>
+        <a href="/create" class="btn btn-purple btn-sm px-3 fw-semibold"><i class="fa-solid fa-plus me-1"></i> Generate Database</a>
     </div>
 </div>
 
 <!-- Stats Cards Row -->
 <div class="row g-3 mb-4">
     <div class="col-6 col-md-3">
-        <div class="stat-card stat-card-blue">
+        <div class="stat-card">
             <div class="stat-icon text-icon-blue"><i class="fa-solid fa-database"></i></div>
             <div class="stat-number">{{ total_schemas }}</div>
-            <div class="stat-label">Total Schemas</div>
+            <div class="stat-label">Total Databases</div>
         </div>
     </div>
     <div class="col-6 col-md-3">
-        <div class="stat-card stat-card-green">
+        <div class="stat-card">
             <div class="stat-icon text-icon-green"><i class="fa-solid fa-download"></i></div>
             <div class="stat-number text-icon-green">{{ total_downloads }}</div>
             <div class="stat-label">Downloads</div>
         </div>
     </div>
     <div class="col-6 col-md-3">
-        <div class="stat-card stat-card-cyan">
+        <div class="stat-card">
             <div class="stat-icon text-icon-cyan"><i class="fa-solid fa-eye"></i></div>
             <div class="stat-number">{{ total_views }}</div>
             <div class="stat-label">Total Views</div>
         </div>
     </div>
     <div class="col-6 col-md-3">
-        <div class="stat-card stat-card-purple">
-            <div class="stat-icon text-icon-purple"><i class="fa-solid fa-robot"></i></div>
-            <div class="stat-number text-icon-purple">{{ ai_schemas }}</div>
-            <div class="stat-label">AI Generated</div>
+        <div class="stat-card">
+            <div class="stat-icon text-icon-purple"><i class="fa-solid fa-layer-group"></i></div>
+            <div class="stat-number text-icon-purple">5</div>
+            <div class="stat-label">Supported DB Engines</div>
         </div>
     </div>
+</div>
+
+<!-- Multi-Database Breakdown Cards -->
+<h5 class="fw-bold text-dark mb-3"><i class="fa-solid fa-server me-2 text-primary"></i>Database Engine Breakdown</h5>
+<div class="row g-3 mb-4">
+    {% for name, count, icon, color in db_types_breakdown %}
+    <div class="col">
+        <div class="card p-3 shadow-sm border text-center h-100 bg-white">
+            <div class="icon-box icon-box-sm bg-{{ color }} text-white mx-auto mb-2"><i class="fa-solid {{ icon }}"></i></div>
+            <h5 class="fw-bold text-dark mb-0">{{ count }}</h5>
+            <span class="text-secondary small fw-semibold">{{ name }}</span>
+        </div>
+    </div>
+    {% endfor %}
 </div>
 
 <!-- Charts Row -->
 <div class="row g-4 mb-4">
     <div class="col-lg-8">
-        <div class="card shadow-sm p-4 h-100">
-            <h6 class="fw-bold text-dark mb-3"><i class="fa-solid fa-chart-area text-primary me-2"></i>Schema Generation Velocity (Last 7 Days)</h6>
+        <div class="card shadow-sm p-4 h-100 bg-white">
+            <h6 class="fw-bold text-dark mb-3"><i class="fa-solid fa-chart-area text-primary me-2"></i>Database Generation Velocity (Last 7 Days)</h6>
             <canvas id="trendChart" height="120"></canvas>
             <div id="trend-data" class="d-none" data-trend='{{ trend | tojson }}'></div>
         </div>
     </div>
 
     <div class="col-lg-4">
-        <div class="card shadow-sm p-4 h-100">
-            <h6 class="fw-bold text-dark mb-3"><i class="fa-solid fa-chart-pie text-primary me-2"></i>Industry Share Distribution</h6>
-            <canvas id="industryChart" height="220"></canvas>
-            <div id="industry-data" class="d-none" data-industries='{{ industries | tojson }}'></div>
+        <div class="card shadow-sm p-4 h-100 bg-white">
+            <h6 class="fw-bold text-dark mb-3"><i class="fa-solid fa-chart-pie text-primary me-2"></i>Target Engine Distribution</h6>
+            <canvas id="engineChart" height="220"></canvas>
         </div>
     </div>
 </div>
 
-<!-- Details & Top Lists -->
+<!-- Details & Activity Lists -->
 <div class="row g-4">
     <div class="col-lg-6">
-        <div class="card shadow-sm p-4">
-            <h6 class="fw-bold text-dark mb-3"><i class="fa-solid fa-trophy text-warning me-2"></i>Most Viewed Schemas</h6>
+        <div class="card shadow-sm p-4 bg-white">
+            <h6 class="fw-bold text-dark mb-3"><i class="fa-solid fa-trophy text-warning me-2"></i>Most Popular Databases</h6>
             {% if top_schemas %}
             <div class="d-flex flex-column gap-2">
                 {% for s in top_schemas %}
-                <a href="/database/{{ s.id }}" class="text-decoration-none">
+                <a href="/crud?db_type={{ s.database_type or 'sqlserver' }}&db_name={{ s.project_name }}" class="text-decoration-none">
                     <div class="p-3 bg-light rounded border d-flex align-items-center justify-content-between">
                         <div>
                             <div class="fw-bold text-dark small">{{ s.project_name }}</div>
-                            <span class="badge-blue" style="font-size:0.7rem;">{{ s.industry or 'General' }}</span>
+                            <span class="badge-purple" style="font-size:0.7rem;">{{ (s.database_type or 'sqlserver') | upper }}</span>
                         </div>
                         <div class="text-end">
                             <div class="fw-bold text-primary small">{{ s.views_count or 0 }} views</div>
@@ -87,27 +100,26 @@
                 {% endfor %}
             </div>
             {% else %}
-            <p class="text-muted small text-center py-4">No top schemas recorded yet.</p>
+            <p class="text-muted small text-center py-4">No databases recorded yet.</p>
             {% endif %}
         </div>
     </div>
 
     <div class="col-lg-6">
-        <div class="card shadow-sm p-4">
+        <div class="card shadow-sm p-4 bg-white">
             <h6 class="fw-bold text-dark mb-3"><i class="fa-solid fa-clock-rotate-left text-primary me-2"></i>Recent System Activity</h6>
             {% if recent_schemas %}
             <div class="d-flex flex-column gap-2">
                 {% for s in recent_schemas %}
                 <div class="p-3 bg-light rounded border d-flex align-items-center justify-content-between">
                     <div>
-                        <a href="/database/{{ s.id }}" class="fw-bold text-dark text-decoration-none small">
+                        <a href="/crud?db_type={{ s.database_type or 'sqlserver' }}&db_name={{ s.project_name }}" class="fw-bold text-dark text-decoration-none small">
                             {{ s.project_name }}
                         </a>
                         <div class="text-muted small">{{ s.created_at.strftime('%b %d, %Y %H:%M') }}</div>
                     </div>
                     <div class="d-flex gap-1">
-                        {% if s.ai_generated %}<span class="badge-green" style="font-size:0.7rem;">AI</span>{% endif %}
-                        <span class="badge-gov" style="font-size:0.7rem;">{{ s.industry or 'General' }}</span>
+                        <span class="badge-gov" style="font-size:0.7rem;">{{ (s.database_type or 'sqlserver') | upper }}</span>
                     </div>
                 </div>
                 {% endfor %}
@@ -122,8 +134,6 @@
 
 {% block extra_scripts %}
 <script>
-const COLORS = ['#2563EB','#16A34A','#F59E0B','#DC2626','#0284C7','#7C3AED','#DB2777','#475569'];
-
 const trendEl = document.getElementById('trend-data');
 const trendData = JSON.parse(trendEl ? trendEl.dataset.trend : '[]');
 new Chart(document.getElementById('trendChart'), {
@@ -131,13 +141,12 @@ new Chart(document.getElementById('trendChart'), {
     data: {
         labels: trendData.map(d => d.date),
         datasets: [{
-            label: 'Schemas Generated',
+            label: 'Databases Created',
             data: trendData.map(d => d.count),
-            borderColor: '#2563EB',
-            backgroundColor: 'rgba(37, 99, 235, 0.08)',
+            borderColor: '#7C3AED',
+            backgroundColor: 'rgba(124, 58, 237, 0.08)',
             borderWidth: 2.5,
-            pointBackgroundColor: '#2563EB',
-            pointRadius: 4,
+            pointBackgroundColor: '#7C3AED',
             fill: true,
             tension: 0.3
         }]
@@ -146,34 +155,28 @@ new Chart(document.getElementById('trendChart'), {
         responsive: true,
         plugins: { legend: { display: false } },
         scales: {
-            x: { grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { color: '#4B5563', font: { family: 'Inter' } } },
-            y: { grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { color: '#4B5563', font: { family: 'Inter' }, stepSize: 1 }, beginAtZero: true }
+            x: { grid: { color: 'rgba(0,0,0,0.05)' } },
+            y: { grid: { color: 'rgba(0,0,0,0.05)' }, beginAtZero: true }
         }
     }
 });
 
-const indEl = document.getElementById('industry-data');
-const indData = JSON.parse(indEl ? indEl.dataset.industries : '[]');
-if (indData.length > 0) {
-    new Chart(document.getElementById('industryChart'), {
-        type: 'doughnut',
-        data: {
-            labels: indData.map(i => i[0] || 'General'),
-            datasets: [{
-                data: indData.map(i => i[1]),
-                backgroundColor: COLORS,
-                borderWidth: 1,
-                borderColor: '#FFFFFF'
-            }]
-        },
-        options: {
-            responsive: true,
-            cutout: '60%',
-            plugins: {
-                legend: { position: 'bottom', labels: { color: '#1F2937', font: { family: 'Inter', size: 11 }, padding: 10 } }
-            }
+new Chart(document.getElementById('engineChart'), {
+    type: 'doughnut',
+    data: {
+        labels: ['SQL Server', 'MySQL', 'Oracle', 'MongoDB', 'Excel'],
+        datasets: [{
+            data: [{{ sqlserver_count }}, {{ mysql_count }}, {{ oracle_count }}, {{ mongodb_count }}, {{ excel_count }}],
+            backgroundColor: ['#7C3AED', '#0284C7', '#E11D48', '#10B981', '#D97706'],
+            borderWidth: 1
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            legend: { position: 'bottom', labels: { font: { family: 'Inter', size: 11 }, color: '#0F172A' } }
         }
-    });
-}
+    }
+});
 </script>
 {% endblock %}

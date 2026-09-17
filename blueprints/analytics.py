@@ -1,6 +1,6 @@
 """
-SMART DB — Analytics Blueprint
-Handles tracking event statistics, trend analysis and reporting metrics.
+SMART DB — System Analytics & Platform Management Dashboard Blueprint
+Computes multi-database statistics across SQL Server, MySQL, Oracle, MongoDB, and Excel.
 """
 from datetime import datetime, timedelta
 from flask import Blueprint, render_template, jsonify
@@ -14,15 +14,27 @@ def analytics():
     total_schemas    = SharedDatabase.query.count()
     total_downloads  = DownloadLog.query.count()
     total_views      = db.session.query(func.sum(SharedDatabase.views_count)).scalar() or 0
-    ai_schemas       = SharedDatabase.query.filter_by(ai_generated=True).count()
-    industries_rows = db.session.query(SharedDatabase.industry, func.count(SharedDatabase.id)).group_by(SharedDatabase.industry).all()
-    industries      = [(r[0] or 'General', r[1]) for r in industries_rows]
-    recent_schemas   = SharedDatabase.query.order_by(SharedDatabase.created_at.desc()).limit(10).all()
-    top_schemas      = SharedDatabase.query.order_by(SharedDatabase.views_count.desc()).limit(5).all()
 
-    # Daily generation trend (last 7 days)
-    today   = datetime.utcnow().date()
-    trend   = []
+    # Multi-database breakdown
+    sqlserver_count = SharedDatabase.query.filter_by(database_type='sqlserver').count()
+    mysql_count     = SharedDatabase.query.filter_by(database_type='mysql').count()
+    oracle_count    = SharedDatabase.query.filter_by(database_type='oracle').count()
+    mongodb_count   = SharedDatabase.query.filter_by(database_type='mongodb').count()
+    excel_count     = SharedDatabase.query.filter_by(database_type='excel').count()
+
+    db_types_breakdown = [
+        ('SQL Server', sqlserver_count, 'fa-database', 'purple'),
+        ('MySQL Engine', mysql_count, 'fa-server', 'cyan'),
+        ('Oracle DB', oracle_count, 'fa-building-columns', 'pink'),
+        ('MongoDB (NoSQL)', mongodb_count, 'fa-leaf', 'green'),
+        ('Excel Workbooks', excel_count, 'fa-file-excel', 'amber')
+    ]
+
+    recent_schemas = SharedDatabase.query.order_by(SharedDatabase.created_at.desc()).limit(10).all()
+    top_schemas    = SharedDatabase.query.order_by(SharedDatabase.views_count.desc()).limit(5).all()
+
+    today = datetime.utcnow().date()
+    trend = []
     for i in range(6, -1, -1):
         day       = today - timedelta(days=i)
         day_start = datetime.combine(day, datetime.min.time())
@@ -37,8 +49,12 @@ def analytics():
         total_schemas=total_schemas,
         total_downloads=total_downloads,
         total_views=total_views,
-        ai_schemas=ai_schemas,
-        industries=industries,
+        sqlserver_count=sqlserver_count,
+        mysql_count=mysql_count,
+        oracle_count=oracle_count,
+        mongodb_count=mongodb_count,
+        excel_count=excel_count,
+        db_types_breakdown=db_types_breakdown,
         recent_schemas=recent_schemas,
         top_schemas=top_schemas,
         trend=trend,
@@ -59,11 +75,13 @@ def api_analytics_stats():
         ).count()
         trend.append({'date': day.strftime('%b %d'), 'count': count})
 
-    industries = db.session.query(SharedDatabase.industry, func.count(SharedDatabase.id)).group_by(SharedDatabase.industry).all()
     return jsonify({
         'total_schemas':   SharedDatabase.query.count(),
         'total_downloads': DownloadLog.query.count(),
-        'ai_schemas':      SharedDatabase.query.filter_by(ai_generated=True).count(),
+        'sqlserver_count': SharedDatabase.query.filter_by(database_type='sqlserver').count(),
+        'mysql_count':     SharedDatabase.query.filter_by(database_type='mysql').count(),
+        'oracle_count':    SharedDatabase.query.filter_by(database_type='oracle').count(),
+        'mongodb_count':   SharedDatabase.query.filter_by(database_type='mongodb').count(),
+        'excel_count':     SharedDatabase.query.filter_by(database_type='excel').count(),
         'trend':           trend,
-        'industries':      [{'name': i[0] or 'General', 'count': i[1]} for i in industries],
     })

@@ -3,6 +3,7 @@ SMART DB — AI Schema Agent
 Multi-step GPT-4o pipeline for intelligent database schema generation.
 Falls back to the rule-based engine when no API key is configured.
 """
+import re
 import json
 import logging
 from typing import Optional
@@ -242,9 +243,10 @@ class SchemaAgent:
         if not self.ai_enabled:
             return self.fallback.nl_to_sql(user_query, schema_context, db_type)
 
+        context_str = json.dumps(schema_context, indent=2) if isinstance(schema_context, dict) else str(schema_context)
         prompt   = NL_TO_SQL_PROMPT.format(
             db_type=db_type,
-            schema_context=schema_context,
+            schema_context=context_str,
             user_query=user_query
         )
         response = self._call_gpt(prompt, temperature=0.2)
@@ -252,7 +254,76 @@ class SchemaAgent:
 
         if result and 'sql' in result:
             return result
-        return {"sql": "-- Could not generate SQL", "explanation": "Generation failed.", "tables_used": [], "optimization_tips": [], "alternative_approaches": []}
+        return self.fallback.nl_to_sql(user_query, schema_context, db_type)
+
+    def parse_table_structure(self, table_name: str, description: str) -> list[dict]:
+        """Convert natural language table column description into structured list of columns."""
+        if not description or not description.strip():
+            return []
+
+        # Simple regex heuristic if AI is disabled or fails
+        cols = []
+        raw_words = re.findall(r'\w+', description.lower())
+        
+        # Look for column hints
+        known_types = {
+            'id': 'INT IDENTITY(1,1) PRIMARY KEY',
+            'name': 'NVARCHAR(100)',
+            'age': 'INT',
+            'gender': 'NVARCHAR(20)',
+            'phone': 'NVARCHAR(20)',
+            'email': 'NVARCHAR(255)',
+            'address': 'NVARCHAR(MAX)',
+            'dob': 'DATE',
+            'date': 'DATETIME',
+            'price': 'DECIMAL(12,2)',
+            'amount': 'DECIMAL(12,2)',
+            'salary': 'DECIMAL(12,2)',
+            'status': 'NVARCHAR(50)',
+            'description': 'NVARCHAR(MAX)',
+            'notes': 'NVARCHAR(MAX)',
+        }
+        
+        # If AI enabled, call GPT
+        if self.ai_enabled:
+            prompt = f"""Extract column definitions from this description for table '{table_name}':
+"{description}"
+
+Return ONLY JSON array of objects:
+[
+  {{"name": "column_name", "type": "DATA_TYPE", "primary_key": true/false, "not_null": true/false}}
+]
+Rules:
+- For SQL Server, use INT, NVARCHAR(100), NVARCHAR(MAX), DECIMAL(12,2), DATETIME, DATE, BIT.
+- Mark primary key where requested or inferred.
+"""
+            res = self._call_gpt(prompt, temperature=0.1)
+            parsed = self._parse_json(res)
+            if isinstance(parsed, list):
+                return parsed
+
+        # Heuristic fallback
+        for word in raw_words:
+            if word in known_types and not any(c['name'] == word for c in cols):
+                is_pk = (word == 'id' or f"{table_name[:-1] if table_name.endswith('s') else table_name}_id" in word or 'primary' in description.lower() and 'id' in word)
+                cols.append({
+                    'name': word,
+                    'type': known_types[word],
+                    'primary_key': is_pk,
+                    'not_null': is_pk or word in ['name', 'email']
+                })
+        
+        if not cols:
+            # Basic fallback columns
+            pk_col = f"{table_name[:-1] if table_name.endswith('s') else table_name}_id"
+            cols = [
+                {'name': pk_col, 'type': 'INT IDENTITY(1,1) PRIMARY KEY', 'primary_key': True, 'not_null': True},
+                {'name': f"{table_name.lower()}_name", 'type': 'NVARCHAR(100)', 'primary_key': False, 'not_null': True},
+                {'name': 'created_at', 'type': 'DATETIME DEFAULT GETDATE()', 'primary_key': False, 'not_null': False}
+            ]
+            
+        return cols
+
 
     def run_full_pipeline(self, requirements: str, db_type: str = 'sqlite') -> dict:
         """

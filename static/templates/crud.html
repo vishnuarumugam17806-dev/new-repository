@@ -1,262 +1,714 @@
 {% extends 'base.html' %}
-{% block title %}Dynamic CRUD Browser — {{ database.project_name }} — SMART DB{% endblock %}
+{% block title %}Universal Data Explorer & Platform Manager — SMART DB{% endblock %}
 
 {% block content %}
-<div class="row">
+<div class="row g-3">
 
-    <!-- Table Sidebar Navigation -->
-    <div class="col-lg-3 mb-4">
-        <div class="card shadow-sm p-3">
-            <div class="d-flex align-items-center gap-2 mb-3 small">
-                <a href="/database/{{ database.id }}" class="text-secondary">
-                    <i class="fa-solid fa-chevron-left me-1"></i> {{ database.project_name }}
-                </a>
-            </div>
-            <h6 class="fw-bold mb-1 text-dark"><i class="fa-solid fa-table me-2 text-primary"></i>Database Tables</h6>
-            <p class="text-muted small mb-3">Live SQL Server Instance</p>
+    <!-- ── Left Hierarchy Tree Explorer Sidebar ── -->
+    <div class="col-xl-3 col-lg-4">
+        <div class="card shadow-sm border p-3 h-100 bg-white">
 
-            <div class="d-flex flex-column gap-1">
-                {% for tbl in table_info %}
-                <a href="/crud/{{ database.id }}/{{ tbl.name }}"
-                   class="d-flex align-items-center justify-content-between px-3 py-2 rounded-2 text-decoration-none border mb-1
-                          {% if active_table == tbl.name %}bg-primary text-white border-primary fw-bold{% else %}bg-light text-dark border-light{% endif %}">
-                    <div class="font-monospace small">
-                        <i class="fa-solid fa-table me-2"></i> {{ tbl.name }}
-                    </div>
-                    <span class="badge {% if active_table == tbl.name %}bg-white text-primary{% else %}bg-secondary{% endif %} rounded-pill small">
-                        {{ tbl.row_count }}
-                    </span>
-                </a>
-                {% endfor %}
+            <!-- Database Platform Selector -->
+            <div class="mb-3">
+                <label class="form-label text-secondary small fw-bold mb-1">SELECT DATA PLATFORM</label>
+                <select id="platformSelect" class="form-select bg-light text-dark border fw-semibold" onchange="switchPlatform(this.value)">
+                    <option value="sqlserver" {% if db_type == 'sqlserver' %}selected{% endif %}>SQL SERVER (Relational T-SQL)</option>
+                    <option value="mysql" {% if db_type == 'mysql' %}selected{% endif %}>MYSQL (Relational Engine)</option>
+                    <option value="oracle" {% if db_type == 'oracle' %}selected{% endif %}>ORACLE (PL/SQL System)</option>
+                    <option value="mongodb" {% if db_type == 'mongodb' %}selected{% endif %}>MONGODB (NoSQL BSON Store)</option>
+                    <option value="excel" {% if db_type == 'excel' %}selected{% endif %}>EXCEL WORKBOOK (openpyxl)</option>
+                </select>
             </div>
-            {% if not table_info %}
-            <p class="text-muted text-center py-3 small">No tables detected.</p>
-            {% endif %}
+
+            <div class="d-flex align-items-center justify-content-between mb-2">
+                <span class="fw-bold small text-purple"><i class="fa-solid fa-folder-tree me-1"></i> EXPLORER TREE</span>
+                <button class="btn btn-sm btn-outline-secondary py-0 px-2" onclick="refreshTree()"><i class="fa-solid fa-rotate"></i></button>
+            </div>
+
+            <!-- Dynamic Explorer Tree List -->
+            <div id="explorerTreeContainer" class="d-flex flex-column gap-2 overflow-auto" style="max-height: 520px;">
+                <div class="text-center py-3 text-secondary small"><i class="fa-solid fa-spinner fa-spin me-1"></i> Loading explorer tree...</div>
+            </div>
+
+            <!-- Quick Action Links -->
+            <div class="mt-auto pt-3 border-top d-flex flex-column gap-2">
+                <button class="btn btn-purple btn-sm w-100 fw-semibold" onclick="openFileImportModal()">
+                    <i class="fa-solid fa-file-import me-1"></i> Import CSV / Excel / JSON
+                </button>
+                <button class="btn btn-outline-purple btn-sm w-100 fw-semibold" onclick="openCreateUnitModal()">
+                    <i class="fa-solid fa-plus me-1"></i> Create Table / Collection
+                </button>
+            </div>
         </div>
     </div>
 
-    <!-- Main Workspace -->
-    <div class="col-lg-9">
-
-        {% if mode == 'home' %}
-        <!-- Database Overview View -->
-        <div class="card shadow-sm p-4">
-            <div class="d-flex align-items-center gap-3 mb-4 border-bottom pb-3">
-                <div class="p-3 bg-light rounded text-primary fs-3">
-                    <i class="fa-solid fa-database"></i>
-                </div>
+    <!-- ── Main Explorer Workspace & Data Grid ── -->
+    <div class="col-xl-9 col-lg-8">
+        <!-- Target Info & Search Bar -->
+        <div class="card shadow-sm border p-3 mb-3 bg-white">
+            <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
                 <div>
-                    <h4 class="fw-bold mb-0 text-dark">{{ database.project_name }}</h4>
-                    <p class="text-secondary small mb-0">SQL Server Management Console (Windows Auth)</p>
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="badge-purple uppercase" id="badgeDbType">{{ db_type | upper }}</span>
+                        <h4 class="fw-bold m-0 text-dark font-monospace" id="activeTargetTitle">{{ db_name }}.{{ table or 'Select Table' }}</h4>
+                    </div>
+                    <span class="text-secondary small" id="activeTargetSubtitle">Connected Data Source</span>
                 </div>
-                <div class="ms-auto">
-                    <span class="badge-blue"><i class="fa-solid fa-layer-group me-1"></i> {{ table_info|length }} Tables</span>
+
+                <div class="d-flex align-items-center gap-2">
+                    <button class="btn btn-sm btn-outline-success" onclick="openAddRecordModal()">
+                        <i class="fa-solid fa-plus me-1"></i> Add Record
+                    </button>
+                    <button class="btn btn-sm btn-outline-warning" onclick="openVisualizationModal()">
+                        <i class="fa-solid fa-chart-pie me-1"></i> Charts &amp; Analytics
+                    </button>
                 </div>
             </div>
 
-            <div class="row g-3">
-                {% for tbl in table_info %}
-                <div class="col-md-6 col-xl-4">
-                    <a href="/crud/{{ database.id }}/{{ tbl.name }}" class="text-decoration-none">
-                        <div class="card p-3 h-100 border hover-shadow">
-                            <div class="d-flex align-items-center justify-content-between mb-2">
-                                <span class="font-monospace fw-bold text-primary small">
-                                    <i class="fa-solid fa-table me-1"></i> {{ tbl.name }}
-                                </span>
-                                <span class="badge-gov" style="font-size:0.7rem;">{{ tbl.row_count }} rows</span>
-                            </div>
-                            <div class="text-muted small">
-                                {{ tbl.columns|length }} columns:
-                                {% for col in tbl.columns[:3] %}
-                                <span class="font-monospace text-dark">{{ col.name }}</span>{% if not loop.last %}, {% endif %}
-                                {% endfor %}
-                                {% if tbl.columns|length > 3 %}...{% endif %}
-                            </div>
-                        </div>
-                    </a>
+            <!-- Search & NLP Command Bar -->
+            <div class="row g-2 mt-2">
+                <div class="col-md-6">
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text bg-light text-secondary border"><i class="fa-solid fa-magnifying-glass"></i></span>
+                        <input type="text" id="searchInput" class="form-control bg-white text-dark border" placeholder="Search records in dataset..." onkeyup="if(event.key==='Enter') loadGridData();">
+                        <button class="btn btn-outline-purple" type="button" onclick="loadGridData()">Search</button>
+                    </div>
                 </div>
-                {% endfor %}
+                <div class="col-md-6">
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text bg-light text-purple border"><i class="fa-solid fa-wand-magic-sparkles"></i></span>
+                        <input type="text" id="nlpCommandInput" class="form-control bg-white text-dark border" placeholder='AI Prompt: e.g. "Change Arun phone to 9876543210"' onkeydown="if(event.key==='Enter') executeNlpPrompt();">
+                        <button class="btn btn-purple" type="button" onclick="executeNlpPrompt()">Run AI</button>
+                    </div>
+                </div>
             </div>
         </div>
 
-        {% elif mode == 'list' %}
-        <!-- Table Record Browsing View -->
-        <div class="card shadow-sm p-4 mb-3">
-            <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
-                <div>
-                    <h5 class="fw-bold mb-0 text-dark">
-                        <i class="fa-solid fa-table text-icon-blue me-2"></i>
-                        <span class="font-monospace">{{ active_table }}</span>
-                    </h5>
-                    <span class="text-secondary small">{{ total }} total records &bull; {{ columns|length }} columns</span>
-                </div>
-                <div class="d-flex gap-2">
-                    <a href="/crud/{{ database.id }}/{{ active_table }}/insert" class="btn btn-success btn-sm">
-                        <i class="fa-solid fa-plus me-1"></i> Insert Row
-                    </a>
-                    <a href="/export-csv/{{ database.id }}?table={{ active_table }}" class="btn btn-outline-cyan btn-sm">
-                        <i class="fa-solid fa-file-csv me-1 text-icon-cyan"></i> Export CSV
-                    </a>
-                </div>
-            </div>
-
-            {% if rows %}
-            <div class="table-container">
-                <table class="table table-striped align-middle">
-                    <thead>
-                        <tr>
-                            {% for col in columns %}
-                            <th class="font-monospace small">
-                                {{ col.name }}
-                                {% if col.pk %}<span class="badge-purple ms-1" style="font-size:0.65rem;">PK</span>{% endif %}
-                            </th>
-                            {% endfor %}
-                            <th class="small text-end">Actions</th>
-                        </tr>
+        <!-- Data Grid View Card -->
+        <div class="card shadow-sm border p-3 mb-3 bg-white">
+            <div class="table-responsive" style="min-height: 380px; max-height: 520px; overflow-y: auto;">
+                <table class="table table-hover table-bordered align-middle text-nowrap" id="dataGridTable">
+                    <thead class="table-secondary" id="dataGridHead">
+                        <tr><th>#</th><th>Loading structure...</th></tr>
                     </thead>
-                    <tbody>
-                        {% for row in rows %}
-                        <tr>
-                            {% for col in columns %}
-                            <td class="font-monospace small text-truncate" style="max-width:200px;" title="{{ row[col.name] }}">
-                                {% set val = row[col.name] %}
-                                {% if val is none %}
-                                <span class="text-muted fst-italic">NULL</span>
-                                {% else %}
-                                {{ val }}
-                                {% endif %}
-                            </td>
-                            {% endfor %}
-                            <td class="text-end" style="white-space:nowrap;">
-                                {% if pk_col %}
-                                <a href="/crud/{{ database.id }}/{{ active_table }}/edit/{{ row[pk_col] }}"
-                                   class="btn btn-sm btn-outline-warning py-1 px-2" title="Edit Record">
-                                    <i class="fa-solid fa-pen-to-square text-icon-amber"></i>
-                                </a>
-                                <form method="POST" action="/crud/{{ database.id }}/{{ active_table }}/delete/{{ row[pk_col] }}"
-                                      style="display:inline;" onsubmit="return confirm('Delete this row?');">
-                                    <button type="submit" class="btn btn-sm btn-danger py-1 px-2" title="Delete Record">
-                                        <i class="fa-solid fa-trash"></i>
-                                    </button>
-                                </form>
-                                {% endif %}
-                            </td>
-                        </tr>
-                        {% endfor %}
+                    <tbody id="dataGridBody">
+                        <tr><td colspan="5" class="text-center py-4 text-secondary"><i class="fa-solid fa-spinner fa-spin me-2"></i> Fetching records from dataset...</td></tr>
                     </tbody>
                 </table>
             </div>
 
-            <!-- Pagination -->
-            {% if total > per_page %}
-            <div class="d-flex justify-content-between align-items-center mt-3 small text-secondary">
-                <span>Showing {{ (page-1)*per_page + 1 }}–{{ [page*per_page, total]|min }} of {{ total }} entries</span>
-                <div class="d-flex gap-1">
-                    {% if page > 1 %}
-                    <a href="/crud/{{ database.id }}/{{ active_table }}?page={{ page - 1 }}" class="btn btn-sm btn-outline-secondary">
-                        <i class="fa-solid fa-chevron-left me-1"></i> Previous
-                    </a>
-                    {% endif %}
-                    {% if page * per_page < total %}
-                    <a href="/crud/{{ database.id }}/{{ active_table }}?page={{ page + 1 }}" class="btn btn-sm btn-outline-secondary">
-                        Next <i class="fa-solid fa-chevron-right ms-1"></i>
-                    </a>
-                    {% endif %}
+            <!-- Pagination Bar -->
+            <div class="d-flex align-items-center justify-content-between pt-2 border-top text-secondary small">
+                <span id="paginationInfo">Showing 0 of 0 records</span>
+                <div class="d-flex gap-2" id="paginationControls">
+                    <button class="btn btn-sm btn-outline-secondary" id="prevPageBtn" onclick="changePage(-1)" disabled><i class="fa-solid fa-chevron-left"></i> Prev</button>
+                    <span class="px-2 py-1 fw-bold text-dark" id="currentPageNum">1</span>
+                    <button class="btn btn-sm btn-outline-secondary" id="nextPageBtn" onclick="changePage(1)" disabled>Next <i class="fa-solid fa-chevron-right"></i></button>
                 </div>
             </div>
-            {% endif %}
+        </div>
+    </div>
 
-            {% else %}
-            <div class="text-center py-5 bg-light rounded-3">
-                <i class="fa-solid fa-table text-muted fs-1 mb-2"></i>
-                <p class="text-secondary small mb-3">No records found in table <strong>{{ active_table }}</strong>.</p>
-                <a href="/crud/{{ database.id }}/{{ active_table }}/insert" class="btn btn-primary btn-sm">
-                    <i class="fa-solid fa-plus me-1"></i> Insert First Record
-                </a>
+</div>
+
+<!-- ── NLP Confirmation Modal Layer ── -->
+<div class="modal fade" id="nlpConfirmationModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content bg-white text-dark border-purple">
+            <div class="modal-header bg-light border-bottom">
+                <h5 class="modal-title text-warning fw-bold"><i class="fa-solid fa-shield-halved me-2"></i>Confirm Operation</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            {% endif %}
+            <div class="modal-body" id="nlpModalBody">
+            </div>
+            <div class="modal-footer border-top">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-purple px-4" id="confirmNlpBtn" onclick="confirmNlpExecution()">[ CONFIRM EXECUTION ]</button>
+            </div>
         </div>
-
-        {% elif mode == 'insert' %}
-        <!-- Insert Row Form -->
-        <div class="card shadow-sm p-4">
-            <h5 class="fw-bold mb-3 text-dark">
-                <i class="fa-solid fa-plus text-primary me-2"></i>
-                Insert New Record into <span class="font-monospace">{{ active_table }}</span>
-            </h5>
-            <form method="POST" action="/crud/{{ database.id }}/{{ active_table }}/insert">
-                <div class="row g-3">
-                    {% for col in insert_cols %}
-                    <div class="col-md-6">
-                        <label class="form-label font-monospace fw-bold small text-dark" for="field_{{ col.name }}">
-                            {{ col.name }}
-                            <span class="text-muted fw-normal ms-1">({{ col.type }})</span>
-                            {% if col.notnull %}<span class="text-danger ms-1">*</span>{% endif %}
-                        </label>
-                        {% if 'TEXT' in col.type.upper() %}
-                        <textarea name="{{ col.name }}" id="field_{{ col.name }}" class="form-control" rows="2"
-                                  placeholder="{{ col.dflt_value or '' }}"
-                                  {% if col.notnull %}required{% endif %}></textarea>
-                        {% elif 'BOOL' in col.type.upper() %}
-                        <select name="{{ col.name }}" id="field_{{ col.name }}" class="form-select">
-                            <option value="">-- NULL --</option>
-                            <option value="1">True (1)</option>
-                            <option value="0">False (0)</option>
-                        </select>
-                        {% else %}
-                        <input type="text" name="{{ col.name }}" id="field_{{ col.name }}" class="form-control"
-                               placeholder="{{ col.dflt_value or col.type }}"
-                               {% if col.notnull %}required{% endif %}>
-                        {% endif %}
-                    </div>
-                    {% endfor %}
-                </div>
-                <div class="d-flex gap-2 mt-4 pt-2 border-top">
-                    <button type="submit" class="btn btn-primary px-4"><i class="fa-solid fa-check me-1"></i> Submit Record</button>
-                    <a href="/crud/{{ database.id }}/{{ active_table }}" class="btn btn-outline-secondary px-4"><i class="fa-solid fa-xmark me-1"></i> Cancel</a>
-                </div>
-            </form>
-        </div>
-
-        {% elif mode == 'edit' %}
-        <!-- Edit Record Form -->
-        <div class="card shadow-sm p-4">
-            <h5 class="fw-bold mb-1 text-dark">
-                <i class="fa-solid fa-pen-to-square text-primary me-2"></i>
-                Edit Record #{{ row_id }} in <span class="font-monospace">{{ active_table }}</span>
-            </h5>
-            <p class="text-secondary small mb-3">Update column values and submit changes.</p>
-            <form method="POST" action="/crud/{{ database.id }}/{{ active_table }}/edit/{{ row_id }}">
-                <div class="row g-3">
-                    {% for col in edit_cols %}
-                    <div class="col-md-6">
-                        <label class="form-label font-monospace fw-bold small text-dark" for="edit_field_{{ col.name }}">
-                            {{ col.name }}
-                            <span class="text-muted fw-normal ms-1">({{ col.type }})</span>
-                        </label>
-                        {% if 'TEXT' in col.type.upper() %}
-                        <textarea name="{{ col.name }}" id="edit_field_{{ col.name }}" class="form-control" rows="2">{{ row.get(col.name, '') }}</textarea>
-                        {% elif 'BOOL' in col.type.upper() %}
-                        <select name="{{ col.name }}" id="edit_field_{{ col.name }}" class="form-select">
-                            <option value="">-- NULL --</option>
-                            <option value="1" {% if row.get(col.name) == 1 %}selected{% endif %}>True (1)</option>
-                            <option value="0" {% if row.get(col.name) == 0 %}selected{% endif %}>False (0)</option>
-                        </select>
-                        {% else %}
-                        <input type="text" name="{{ col.name }}" id="edit_field_{{ col.name }}" class="form-control"
-                               value="{{ row.get(col.name, '') if row.get(col.name) is not none else '' }}">
-                        {% endif %}
-                    </div>
-                    {% endfor %}
-                </div>
-                <div class="d-flex gap-2 mt-4 pt-2 border-top">
-                    <button type="submit" class="btn btn-primary px-4"><i class="fa-solid fa-floppy-disk me-1"></i> Save Changes</button>
-                    <a href="/crud/{{ database.id }}/{{ active_table }}" class="btn btn-outline-secondary px-4"><i class="fa-solid fa-xmark me-1"></i> Cancel</a>
-                </div>
-            </form>
-        </div>
-        {% endif %}
-
     </div>
 </div>
+
+<!-- ── File Import & Data Mapping Modal ── -->
+<div class="modal fade" id="fileImportModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content bg-white text-dark border-purple">
+            <div class="modal-header bg-light border-bottom">
+                <h5 class="modal-title text-cyan fw-bold"><i class="fa-solid fa-file-import me-2"></i>Universal File Import &amp; Data Mapping</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="importStep1">
+                    <label class="form-label text-dark fw-bold">Select File (.csv, .xlsx, .json)</label>
+                    <input type="file" id="importFileInput" class="form-control bg-light text-dark border mb-3" accept=".csv, .xlsx, .xls, .json">
+                    <button class="btn btn-purple" onclick="parseImportFile()"><i class="fa-solid fa-magnifying-glass me-1"></i> Parse &amp; Map Columns</button>
+                </div>
+
+                <div id="importStep2" class="d-none mt-3">
+                    <div id="importValidationSummary" class="alert alert-info small mb-3"></div>
+                    <h6 class="fw-bold text-dark mb-2">Column Mapping Interface</h6>
+                    <div class="table-responsive" style="max-height: 250px;">
+                        <table class="table table-sm align-middle" id="mappingTable">
+                            <thead class="table-light"><tr><th>Uploaded File Header</th><th>➔</th><th>Target Field</th></tr></thead>
+                            <tbody id="mappingTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-top">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-success d-none" id="executeImportBtn" onclick="executeImport()"><i class="fa-solid fa-file-import me-1"></i> Execute Bulk Import</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── Create Table / Collection Modal ── -->
+<div class="modal fade" id="createUnitModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content bg-white text-dark border-purple">
+            <div class="modal-header bg-light border-bottom">
+                <h5 class="modal-title text-purple fw-bold"><i class="fa-solid fa-plus me-2"></i>Create Table / Collection</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label text-dark fw-bold">Database Name</label>
+                    <input type="text" id="unitDbName" class="form-control bg-white text-dark border" placeholder="e.g. HospitalManagement">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label text-dark fw-bold">Table / Collection Name</label>
+                    <input type="text" id="unitName" class="form-control bg-white text-dark border" placeholder="e.g. Patients">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label text-dark fw-bold">Column Specifications</label>
+                    <textarea id="unitColumns" class="form-control bg-white text-dark border font-monospace" rows="4" placeholder="id INT PRIMARY KEY&#10;name VARCHAR(100)&#10;age INT"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer border-top">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-purple px-4" onclick="executeCreateUnit()"><i class="fa-solid fa-plus me-1"></i> Create Unit</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── Add / Edit Record Modal ── -->
+<div class="modal fade" id="recordEditModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content bg-white text-dark border">
+            <div class="modal-header bg-light border-bottom">
+                <h5 class="modal-title fw-bold" id="recordEditModalTitle">Add New Record</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="recordEditForm"></form>
+            </div>
+            <div class="modal-footer border-top">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-purple" onclick="saveRecord()">Save Record</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── Chart Analytics Modal ── -->
+<div class="modal fade" id="chartModal" tabindex="-1">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content bg-white text-dark border-purple">
+            <div class="modal-header bg-light border-bottom">
+                <h5 class="modal-title text-warning fw-bold"><i class="fa-solid fa-chart-line me-2"></i>Graphical Data Visualization &amp; KPIs</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row g-3 mb-4" id="kpiCardsRow"></div>
+                <div class="row g-3" id="chartsRow"></div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+let currentDbType = "{{ db_type }}";
+let currentDbName = "{{ db_name }}";
+let currentTable = "{{ table }}";
+let currentPage = 1;
+let totalPages = 1;
+let activePendingNlp = null;
+let parsedImportData = null;
+let activeEditingRecordId = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+    refreshTree();
+    if ("{{ open_import }}" === "true") {
+        openFileImportModal();
+    }
+});
+
+function switchPlatform(type) {
+    currentDbType = type;
+    document.getElementById('badgeDbType').textContent = type.toUpperCase();
+    refreshTree();
+}
+
+async function refreshTree() {
+    const container = document.getElementById('explorerTreeContainer');
+    container.innerHTML = '<div class="text-center py-3 text-secondary small"><i class="fa-solid fa-spinner fa-spin me-1"></i> Loading databases...</div>';
+
+    try {
+        const res = await fetch(`/api/explorer/tree?db_type=${currentDbType}`);
+        const data = await res.json();
+        container.innerHTML = '';
+
+        if (data.tree && data.tree.length) {
+            data.tree.forEach(item => {
+                const dbNode = document.createElement('div');
+                dbNode.className = 'mb-2';
+                
+                let tablesHtml = '';
+                item.tables.forEach(tbl => {
+                    const isSelected = item.name === currentDbName && tbl === currentTable;
+                    tablesHtml += `
+                        <div class="ms-3 py-1 px-2 rounded cursor-pointer small d-flex align-items-center justify-content-between ${isSelected ? 'bg-purple text-white fw-bold' : 'text-secondary hover-bg-light'}"
+                             onclick="selectTarget('${item.name}', '${tbl}')">
+                            <span><i class="fa-solid ${currentDbType==='mongodb'?'fa-leaf':(currentDbType==='excel'?'fa-file-excel':'fa-table')} me-1"></i> ${tbl}</span>
+                        </div>
+                    `;
+                });
+
+                dbNode.innerHTML = `
+                    <div class="fw-bold text-dark small mb-1"><i class="fa-solid fa-database text-purple me-1"></i> ${item.name}</div>
+                    ${tablesHtml || '<div class="ms-3 small text-muted">No tables</div>'}
+                `;
+                container.appendChild(dbNode);
+            });
+
+            if (!currentTable && data.tree[0] && data.tree[0].tables[0]) {
+                selectTarget(data.tree[0].name, data.tree[0].tables[0]);
+            }
+        } else {
+            container.innerHTML = '<div class="text-center py-3 text-secondary small">No databases configured yet.</div>';
+        }
+    } catch (err) {
+        container.innerHTML = '<div class="text-center py-3 text-danger small">Error loading tree.</div>';
+    }
+}
+
+function selectTarget(dbName, tableName) {
+    currentDbName = dbName;
+    currentTable = tableName;
+    currentPage = 1;
+
+    document.getElementById('activeTargetTitle').textContent = `${currentDbName}.${currentTable}`;
+    document.getElementById('activeTargetSubtitle').textContent = `${currentDbType.toUpperCase()} connected data source`;
+    loadGridData();
+}
+
+async function loadGridData() {
+    if (!currentDbName || !currentTable) return;
+
+    const head = document.getElementById('dataGridHead');
+    const body = document.getElementById('dataGridBody');
+    const searchVal = document.getElementById('searchInput').value;
+
+    body.innerHTML = '<tr><td colspan="10" class="text-center py-4 text-secondary"><i class="fa-solid fa-spinner fa-spin me-2"></i> Querying real dataset...</td></tr>';
+
+    try {
+        const url = `/api/explorer/data?db_type=${currentDbType}&db_name=${encodeURIComponent(currentDbName)}&table=${encodeURIComponent(currentTable)}&search=${encodeURIComponent(searchVal)}&page=${currentPage}`;
+        const res = await fetch(url);
+        const data = await res.json();
+
+        head.innerHTML = '';
+        const trHead = document.createElement('tr');
+        trHead.innerHTML = '<th>Actions</th>';
+        data.columns.forEach(col => {
+            trHead.innerHTML += `<th>${col}</th>`;
+        });
+        head.appendChild(trHead);
+
+        body.innerHTML = '';
+        if (data.data && data.data.length) {
+            const pkField = (data.schema_info && data.schema_info.primary_keys && data.schema_info.primary_keys[0]) || data.columns[0];
+            data.data.forEach(row => {
+                const recId = row[pkField] !== undefined ? row[pkField] : row['_row_index'];
+                const tr = document.createElement('tr');
+                let rowCells = `
+                    <td>
+                        <button class="btn btn-sm btn-outline-info py-0 px-1 me-1" onclick="openEditRecordModal('${recId}', '${encodeURIComponent(JSON.stringify(row))}')"><i class="fa-solid fa-pen"></i></button>
+                        <button class="btn btn-sm btn-outline-danger py-0 px-1" onclick="deleteRecordPrompt('${recId}')"><i class="fa-solid fa-trash"></i></button>
+                    </td>
+                `;
+                data.columns.forEach(col => {
+                    let val = row[col];
+                    if (typeof val === 'object' && val !== null) val = JSON.stringify(val);
+                    rowCells += `<td>${val !== undefined && val !== null ? val : ''}</td>`;
+                });
+                tr.innerHTML = rowCells;
+                body.appendChild(tr);
+            });
+        } else {
+            body.innerHTML = `<tr><td colspan="${data.columns.length + 1}" class="text-center py-4 text-secondary">No records found in dataset.</td></tr>`;
+        }
+
+        document.getElementById('paginationInfo').textContent = `Showing page ${data.page} of ${data.total_pages} (${data.total_count} total records)`;
+        currentPage = data.page;
+        totalPages = data.total_pages;
+
+        document.getElementById('prevPageBtn').disabled = currentPage <= 1;
+        document.getElementById('nextPageBtn').disabled = currentPage >= totalPages;
+        document.getElementById('currentPageNum').textContent = currentPage;
+
+    } catch (err) {
+        body.innerHTML = `<tr><td colspan="10" class="text-center py-4 text-danger">Error fetching records: ${err.message}</td></tr>`;
+    }
+}
+
+function changePage(delta) {
+    if (currentPage + delta >= 1 && currentPage + delta <= totalPages) {
+        currentPage += delta;
+        loadGridData();
+    }
+}
+
+function openCreateUnitModal() {
+    document.getElementById('unitDbName').value = currentDbName || 'SmartDB_Project';
+    document.getElementById('unitName').value = '';
+    document.getElementById('unitColumns').value = 'id INT PRIMARY KEY\nname VARCHAR(100)\nage INT';
+    new bootstrap.Modal(document.getElementById('createUnitModal')).show();
+}
+
+async function executeCreateUnit() {
+    const dbName = document.getElementById('unitDbName').value.trim();
+    const unitName = document.getElementById('unitName').value.trim();
+    const rawCols = document.getElementById('unitColumns').value.trim();
+
+    if (!dbName || !unitName) {
+        alert('Please enter database name and table/collection name.');
+        return;
+    }
+
+    const res = await fetch('/api/explorer/record/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            db_type: currentDbType,
+            db_name: dbName,
+            table: unitName,
+            record: { name: 'Initial Sample Record', status: 'Active' }
+        })
+    });
+    const data = await res.json();
+    bootstrap.Modal.getInstance(document.getElementById('createUnitModal')).hide();
+    alert(`Unit ${unitName} created successfully!`);
+    refreshTree();
+}
+
+async function executeNlpPrompt() {
+    const input = document.getElementById('nlpCommandInput');
+    const prompt = input.value.trim();
+    if (!prompt) return;
+
+    const modalBody = document.getElementById('nlpModalBody');
+    const modal = new bootstrap.Modal(document.getElementById('nlpConfirmationModal'));
+
+    try {
+        const isInsert = prompt.toLowerCase().startsWith('add') || prompt.toLowerCase().startsWith('insert');
+        const endpoint = isInsert ? '/api/nlp-insert' : '/api/nlp-modify';
+
+        const res = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                prompt: prompt,
+                db_type: currentDbType,
+                db_name: currentDbName,
+                table: currentTable
+            })
+        });
+
+        const data = await res.json();
+        if (data.success) {
+            activePendingNlp = data.proposed_change || data.proposed_insertion;
+            activePendingNlp.operation_type = isInsert ? 'insert' : 'modify';
+
+            modalBody.innerHTML = `
+                <div class="alert alert-purple mb-3">${data.message.replace(/\n/g, '<br>')}</div>
+                <p class="small text-secondary m-0">Confirming will execute this operation directly on real ${currentDbType.toUpperCase()} database.</p>
+            `;
+            modal.show();
+        } else {
+            alert(data.message);
+        }
+    } catch (err) {
+        alert("NLP Error: " + err.message);
+    }
+}
+
+async function confirmNlpExecution() {
+    if (!activePendingNlp) return;
+
+    try {
+        const res = await fetch('/api/nlp-execute', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                operation_type: activePendingNlp.operation_type,
+                db_type: currentDbType,
+                db_name: currentDbName,
+                table: currentTable,
+                record_id: activePendingNlp.record_id,
+                updates: activePendingNlp.updates,
+                record: activePendingNlp.record
+            })
+        });
+        const data = await res.json();
+        bootstrap.Modal.getInstance(document.getElementById('nlpConfirmationModal')).hide();
+        alert(data.message);
+        loadGridData();
+    } catch (err) {
+        alert("Execution failed: " + err.message);
+    }
+}
+
+function openAddRecordModal() {
+    activeEditingRecordId = null;
+    document.getElementById('recordEditModalTitle').textContent = `Add Record to ${currentTable}`;
+    const form = document.getElementById('recordEditForm');
+    form.innerHTML = `
+        <div class="mb-3">
+            <label class="form-label small text-secondary">Record JSON Data</label>
+            <textarea id="recordJsonInput" class="form-control bg-light text-dark border font-monospace" rows="6">{\n  "name": "Sample",\n  "status": "Active"\n}</textarea>
+        </div>
+    `;
+    new bootstrap.Modal(document.getElementById('recordEditModal')).show();
+}
+
+function openEditRecordModal(recId, encodedRowData) {
+    activeEditingRecordId = recId;
+    const row = JSON.parse(decodeURIComponent(encodedRowData));
+    document.getElementById('recordEditModalTitle').textContent = `Edit Record #${recId}`;
+    const form = document.getElementById('recordEditForm');
+    form.innerHTML = `
+        <div class="mb-3">
+            <label class="form-label small text-secondary">Modify Record JSON</label>
+            <textarea id="recordJsonInput" class="form-control bg-light text-dark border font-monospace" rows="8">${JSON.stringify(row, null, 2)}</textarea>
+        </div>
+    `;
+    new bootstrap.Modal(document.getElementById('recordEditModal')).show();
+}
+
+async function saveRecord() {
+    const jsonStr = document.getElementById('recordJsonInput').value;
+    let payloadObj = {};
+    try {
+        payloadObj = JSON.parse(jsonStr);
+    } catch (e) {
+        alert("Invalid JSON format.");
+        return;
+    }
+
+    const isEdit = activeEditingRecordId !== null;
+    const endpoint = isEdit ? '/api/explorer/record/update' : '/api/explorer/record/create';
+    const bodyObj = {
+        db_type: currentDbType,
+        db_name: currentDbName,
+        table: currentTable,
+        record_id: activeEditingRecordId,
+        updates: payloadObj,
+        record: payloadObj
+    };
+
+    const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(bodyObj)
+    });
+
+    const data = await res.json();
+    bootstrap.Modal.getInstance(document.getElementById('recordEditModal')).hide();
+    alert(data.message);
+    loadGridData();
+}
+
+async function deleteRecordPrompt(recId) {
+    if (!confirm(`Are you sure you want to delete record #${recId}?`)) return;
+
+    const res = await fetch('/api/explorer/record/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            db_type: currentDbType,
+            db_name: currentDbName,
+            table: currentTable,
+            record_id: recId,
+            confirmed: true
+        })
+    });
+    const data = await res.json();
+    alert(data.message);
+    loadGridData();
+}
+
+function openFileImportModal() {
+    document.getElementById('importStep1').classList.remove('d-none');
+    document.getElementById('importStep2').classList.add('d-none');
+    document.getElementById('executeImportBtn').classList.add('d-none');
+    new bootstrap.Modal(document.getElementById('fileImportModal')).show();
+}
+
+async function parseImportFile() {
+    const fileInput = document.getElementById('importFileInput');
+    if (!fileInput.files.length) {
+        alert("Please choose a file.");
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('file', fileInput.files[0]);
+    formData.append('db_type', currentDbType);
+    formData.append('db_name', currentDbName);
+    formData.append('table', currentTable);
+
+    try {
+        const res = await fetch('/api/file-import/parse', {
+            method: 'POST',
+            body: formData
+        });
+        const data = await res.json();
+        if (!data.success) {
+            alert(data.message);
+            return;
+        }
+
+        parsedImportData = data;
+
+        document.getElementById('importValidationSummary').innerHTML = `
+            <strong>File Analyzed:</strong> ${data.parse_info.file_name} (${data.parse_info.total_rows} total rows)<br>
+            <strong>Missing Values Detected:</strong> ${JSON.stringify(data.parse_info.missing_values)}<br>
+            <strong>Duplicate Rows:</strong> ${data.parse_info.duplicate_rows}
+        `;
+
+        const body = document.getElementById('mappingTableBody');
+        body.innerHTML = '';
+        data.parse_info.columns.forEach(col => {
+            const suggested = data.suggested_mapping[col] || col;
+            let options = `<option value="__ignore__">-- Ignore Column --</option>`;
+            data.target_columns.forEach(tc => {
+                options += `<option value="${tc}" ${tc === suggested ? 'selected' : ''}>${tc}</option>`;
+            });
+
+            body.innerHTML += `
+                <tr>
+                    <td class="font-monospace text-purple fw-bold">${col}</td>
+                    <td>➔</td>
+                    <td><select class="form-select form-select-sm bg-white text-dark border mapping-select" data-src="${col}">${options}</select></td>
+                </tr>
+            `;
+        });
+
+        document.getElementById('importStep1').classList.add('d-none');
+        document.getElementById('importStep2').classList.remove('d-none');
+        document.getElementById('executeImportBtn').classList.remove('d-none');
+
+    } catch (err) {
+        alert("Parsing failed: " + err.message);
+    }
+}
+
+async function executeImport() {
+    if (!parsedImportData) return;
+
+    const mapping = {};
+    document.querySelectorAll('.mapping-select').forEach(sel => {
+        const src = sel.getAttribute('data-src');
+        mapping[src] = sel.value;
+    });
+
+    const payload = {
+        db_type: currentDbType,
+        db_name: currentDbName,
+        table: currentTable,
+        file_path: parsedImportData.parse_info.file_path,
+        mapping: mapping
+    };
+
+    const res = await fetch('/api/file-import/execute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    bootstrap.Modal.getInstance(document.getElementById('fileImportModal')).hide();
+    alert(data.message);
+    loadGridData();
+}
+
+async function openVisualizationModal() {
+    const kpiRow = document.getElementById('kpiCardsRow');
+    const chartsRow = document.getElementById('chartsRow');
+    kpiRow.innerHTML = '<div class="col-12 text-center text-secondary py-3"><i class="fa-solid fa-spinner fa-spin me-2"></i> Generating real dataset charts...</div>';
+    chartsRow.innerHTML = '';
+
+    const modal = new bootstrap.Modal(document.getElementById('chartModal'));
+    modal.show();
+
+    try {
+        const res = await fetch(`/api/visualization/analyze?db_type=${currentDbType}&db_name=${currentDbName}&table=${currentTable}`);
+        const data = await res.json();
+
+        kpiRow.innerHTML = '';
+        if (data.kpis) {
+            data.kpis.forEach(kpi => {
+                kpiRow.innerHTML += `
+                    <div class="col-md-3 col-6">
+                        <div class="card p-3 bg-light border text-dark">
+                            <div class="small text-secondary mb-1"><i class="fa-solid ${kpi.icon} me-1 text-${kpi.color}"></i> ${kpi.title}</div>
+                            <h4 class="fw-bold m-0 text-dark">${kpi.value}</h4>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        if (data.charts && data.charts.length) {
+            data.charts.forEach((ch, idx) => {
+                const col = document.createElement('div');
+                col.className = 'col-md-6 mb-3';
+                col.innerHTML = `
+                    <div class="card p-3 bg-white border text-dark h-100">
+                        <h6 class="fw-bold mb-3">${ch.title}</h6>
+                        <canvas id="canvas_${idx}" style="max-height: 240px;"></canvas>
+                    </div>
+                `;
+                chartsRow.appendChild(col);
+
+                setTimeout(() => {
+                    const ctx = document.getElementById(`canvas_${idx}`).getContext('2d');
+                    new Chart(ctx, {
+                        type: ch.type,
+                        data: {
+                            labels: ch.labels,
+                            datasets: ch.datasets
+                        },
+                        options: {
+                            responsive: true,
+                            plugins: { legend: { labels: { color: '#0F172A' } } },
+                            scales: ch.type !== 'doughnut' ? {
+                                x: { ticks: { color: '#475569' } },
+                                y: { ticks: { color: '#475569' } }
+                            } : {}
+                        }
+                    });
+                }, 100);
+            });
+        } else {
+            chartsRow.innerHTML = '<div class="col-12 text-center text-secondary py-3">No chartable numeric/categorical fields found.</div>';
+        }
+    } catch (err) {
+        kpiRow.innerHTML = `<div class="col-12 text-danger">Error loading charts: ${err.message}</div>`;
+    }
+}
+</script>
 {% endblock %}

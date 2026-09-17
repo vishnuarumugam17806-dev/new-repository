@@ -1,12 +1,12 @@
 """
 SMART DB — Marketplace Blueprint
-Handles schema marketplace, comments, likes, ratings, and industry templates.
+Handles schema marketplace, comments, likes, and ratings.
 """
 import re
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
 from flask_login import current_user
 from sqlalchemy import or_
-from models import db, SharedDatabase, Comment, Rating, IndustryTemplate
+from models import db, SharedDatabase, Comment, Rating
 from utils import _track, translate_sql
 
 marketplace_bp = Blueprint('marketplace', __name__)
@@ -56,29 +56,6 @@ def store():
     )
 
 
-@marketplace_bp.route('/templates')
-def templates_page():
-    category    = request.args.get('category', '').strip()
-    templates_q = IndustryTemplate.query
-    if category:
-        templates_q = templates_q.filter_by(category=category)
-    templates   = templates_q.order_by(IndustryTemplate.is_featured.desc(), IndustryTemplate.downloads.desc()).all()
-    categories  = db.session.query(IndustryTemplate.category).distinct().all()
-    categories  = [c[0] for c in categories if c[0]]
-    return render_template('templates_page.html', templates=templates,
-                           categories=categories, active_category=category)
-
-
-@marketplace_bp.route('/templates/<int:tmpl_id>/use')
-def use_template(tmpl_id):
-    tmpl = db.session.get(IndustryTemplate, tmpl_id)
-    if tmpl is None:
-        from flask import abort
-        abort(404)
-    clean_name = re.sub(r'[^A-Za-z0-9_]', '', tmpl.name.title().replace(' ', ''))
-    return redirect(url_for('generator.create_database') + f'?use_template={tmpl_id}&project_name={clean_name}')
-
-
 @marketplace_bp.route('/schema/<int:db_id>/like', methods=['POST'])
 def like_schema(db_id):
     schema = SharedDatabase.query.get_or_404(db_id)
@@ -100,7 +77,7 @@ def add_comment(db_id):
         user_id = None
 
     if content:
-        c = Comment(schema_id=db_id, user_id=user_id, author_name=author_name, content=content)
+        c = Comment(schema_id=db_id, user_id=user_id, text=content)
         db.session.add(c)
         db.session.commit()
         flash('Comment added!', 'success')
@@ -113,7 +90,6 @@ def rate_schema(db_id):
     user_id = current_user.id if current_user.is_authenticated else None
     
     if score and 1 <= score <= 5:
-        # Check if user already rated if logged in
         if user_id:
             existing = Rating.query.filter_by(schema_id=db_id, user_id=user_id).first()
             if existing:
