@@ -211,38 +211,147 @@ h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6 {
   background-color: #F5F3FF !important;
 }
 
+/* ── Standard Feature Icon Box System ────────────────────────────── */
+.feature-icon-box {
+  width: 48px;
+  height: 48px;
+  min-width: 48px;
+  min-height: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  font-size: 1.25rem;
+  transition: all 0.2s ease;
+}
+.icon-box-blue { background-color: #EFF6FF !important; color: #2563EB !important; border: 1px solid #DBEAFE !important; }
+.icon-box-teal { background-color: #F0FDFA !important; color: #0D9488 !important; border: 1px solid #CCFBF1 !important; }
+.icon-box-navy { background-color: #F1F5F9 !important; color: #0F172A !important; border: 1px solid #E2E8F0 !important; }
+.icon-box-green { background-color: #ECFDF5 !important; color: #059669 !important; border: 1px solid #D1FAE5 !important; }
+.icon-box-amber { background-color: #FFFBEB !important; color: #D97706 !important; border: 1px solid #FEF3C7 !important; }
+.icon-box-purple { background-color: #F5F3FF !important; color: #7C3AED !important; border: 1px solid #EDE9FE !important; }
+.icon-box-red { background-color: #FEF2F2 !important; color: #DC2626 !important; border: 1px solid #FEE2E2 !important; }
+
+/* ── Standard Dashboard & Feature Cards ──────────────────────────── */
+.vithra-card {
+  background-color: #FFFFFF !important;
+  border: 1px solid #E2E8F0 !important;
+  border-radius: 14px;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.vithra-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-md) !important;
+  border-color: #CBD5E1 !important;
+}
+.vithra-card-body {
+  flex-grow: 1;
+}
+.vithra-card-footer {
+  margin-top: auto;
+  padding-top: 1rem;
+}
+
+/* ── Authentication Portal Layout ────────────────────────────────── */
+.auth-split-wrapper {
+  min-height: calc(100vh - 180px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 0;
+}
+.auth-brand-pane {
+  padding: 2.5rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.auth-card {
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  border-radius: 16px;
+  box-shadow: var(--shadow-lg);
+  padding: 2.5rem;
+}
+.auth-tabs {
+  display: flex;
+  background: #F1F5F9;
+  border-radius: 10px;
+  padding: 4px;
+  margin-bottom: 1.5rem;
+}
+.auth-tab-btn {
+  flex: 1;
+  text-align: center;
+  padding: 0.6rem 1rem;
+  border-radius: 8px;
+  font-weight: 600;
+  color: #475569;
+  border: none;
+  background: transparent;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  text-decoration: none !important;
+}
+.auth-tab-btn.active {
+  background: #FFFFFF;
+  color: #0F172A;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08);
+}
+
 /* ── Buttons & Action Controls ────────────────────────────────────── */
+.btn-primary {
+  background-color: #2563EB !important;
+  border-color: #2563EB !important;
+  color: #FFFFFF !important;
+  font-weight: 600;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+.btn-primary:hover {
+  background-color: #1D4ED8 !important;
+  border-color: #1D4ED8 !important;
+  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.35);
+  transform: translateY(-1px);
+}
+.btn-teal {
+  background-color: #0D9488 !important;
+  border-color: #0D9488 !important;
+  color: #FFFFFF !important;
+  font-weight: 600;
+  border-radius: 8px;
+}
+.btn-teal:hover {
+  background-color: #0F766E !important;
+  color: #FFFFFF !important;
+}
+.btn-outline-primary {
+  border: 1px solid #2563EB !important;
+  color: #2563EB !important;
+  font-weight: 600;
+  border-radius: 8px;
+}
+.btn-outline-primary:hover {
+  background-color: #2563EB !important;
+  color: #FFFFFF !important;
+}
 .btn-purple {
-  background: linear-gradient(135deg, #7C3AED 0%, #6366F1 100%) !important;
+  background-color: #2563EB !important;
   color: #FFFFFF !important;
   border: none !important;
   font-weight: 600;
-  box-shadow: 0 4px 14px rgba(124, 58, 237, 0.3);
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.25);
 }
 .btn-purple:hover {
-  background: linear-gradient(135deg, #6D28D9 0%, #4F46E5 100%) !important;
+  background-color: #1D4ED8 !important;
   color: #FFFFFF !important;
-  box-shadow: 0 6px 18px rgba(124, 58, 237, 0.4);
-}
-
-.btn-outline-purple {
-  border: 1px solid #7C3AED !important;
-  color: #7C3AED !important;
-  font-weight: 600;
-}
-.btn-outline-purple:hover {
-  background-color: #7C3AED !important;
-  color: #FFFFFF !important;
-}
-
-.btn-outline-cyan {
-  border: 1px solid #0284C7 !important;
-  color: #0284C7 !important;
-  font-weight: 600;
-}
-.btn-outline-cyan:hover {
-  background-color: #0284C7 !important;
-  color: #FFFFFF !important;
+  box-shadow: 0 6px 18px rgba(37, 99, 235, 0.35);
 }
 
 /* ── Form Inputs ─────────────────────────────────────────────────── */

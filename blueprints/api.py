@@ -3,6 +3,7 @@ DB VITHRA — API and Multi-Database Query Assistant Blueprint
 Handles natural language query assistant endpoints for SQL Server, MySQL, Oracle, MongoDB, and Excel.
 """
 from flask import Blueprint, render_template, request, jsonify
+from flask_login import login_required
 import config as cfg
 from models import SharedDatabase
 from ai_engine.schema_agent import agent as ai_agent
@@ -13,6 +14,7 @@ from services.visualization_service import VisualizationService
 api_bp = Blueprint('api', __name__)
 
 @api_bp.route('/query-assistant')
+@login_required
 def query_assistant():
     return render_template('query_assistant.html', ai_enabled=cfg.AI_ENABLED)
 

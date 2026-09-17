@@ -10,7 +10,7 @@ from flask import (
     Blueprint, render_template, request, redirect,
     url_for, flash, jsonify, abort
 )
-from flask_login import current_user
+from flask_login import current_user, login_required
 import config as cfg
 from models import db, SharedDatabase
 from services.connection_manager import ConnectionManager
@@ -24,6 +24,7 @@ crud_bp = Blueprint('crud', __name__)
 
 @crud_bp.route('/crud', methods=['GET'])
 @crud_bp.route('/crud/<int:db_id>', methods=['GET'])
+@login_required
 def explorer(db_id=None):
     """Render the Universal Data Explorer UI."""
     db_type = request.args.get('db_type', 'sqlserver').lower()

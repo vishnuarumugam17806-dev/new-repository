@@ -26,33 +26,43 @@ def register():
         return redirect(url_for('index'))
 
     if request.method == 'POST':
-        username = request.form.get('username', '').strip()
-        email    = request.form.get('email', '').strip()
-        password = request.form.get('password', '')
+        full_name = request.form.get('full_name', '').strip()
+        username  = request.form.get('username', '').strip()
+        email     = request.form.get('email', '').strip()
+        password  = request.form.get('password', '')
+        confirm   = request.form.get('confirm_password', '')
 
-        if not username or not email or not password:
-            flash('All fields are required.', 'danger')
+        if not username or not password:
+            flash('All required fields must be filled.', 'danger')
+            return redirect(url_for('auth.register'))
+
+        # Check confirm password if supplied
+        if confirm and password != confirm:
+            flash('Password and Confirm Password must match.', 'danger')
             return redirect(url_for('auth.register'))
 
         if len(password) < 6:
             flash('Password must be at least 6 characters long.', 'danger')
             return redirect(url_for('auth.register'))
 
-        # Check existing user
+        # Check existing username
         if User.query.filter_by(username=username).first():
-            flash('Username already taken.', 'danger')
+            flash('Username is already taken. Please choose another username.', 'danger')
             return redirect(url_for('auth.register'))
 
-        if User.query.filter_by(email=email).first():
-            flash('Email already registered.', 'danger')
+        if not email:
+            email = f"{username.lower()}@dbvithra.local"
+        elif User.query.filter_by(email=email).first():
+            flash('An account with this email already exists.', 'danger')
             return redirect(url_for('auth.register'))
 
-        # Random beautiful avatar color for glassmorphism layout
+        # Random avatar color for platform consistency
         import random
-        colors = ['#00f2fe', '#4facfe', '#ff0844', '#ffb199', '#f093fb', '#f5576c', '#b1f2ff', '#a8efff']
+        colors = ['#2563EB', '#0284C7', '#10B981', '#0D9488', '#6366F1', '#4F46E5']
         avatar_color = random.choice(colors)
 
         new_user = User(
+            full_name=full_name or username,
             username=username,
             email=email,
             password_hash=hash_password(password),
@@ -62,10 +72,10 @@ def register():
         db.session.add(new_user)
         db.session.commit()
 
-        flash('Registration successful! Please log in.', 'success')
+        flash('Registration successful. Please login to continue.', 'success')
         return redirect(url_for('auth.login'))
 
-    return render_template('register.html')
+    return render_template('register.html', active_tab='register')
 
 
 @auth_bp.route('/login', methods=['GET', 'POST'])
@@ -79,7 +89,7 @@ def login():
 
         user = User.query.filter_by(username=username).first()
         if not user or not check_password(password, user.password_hash):
-            flash('Invalid username or password.', 'danger')
+            flash('Invalid username or password. Please try again.', 'danger')
             return redirect(url_for('auth.login'))
 
         if not user.is_active:
@@ -90,12 +100,11 @@ def login():
         db.session.commit()
 
         login_user(user, remember=True)
-        flash(f'Welcome back, {user.username}! 👋', 'success')
         
         next_page = request.args.get('next')
         return redirect(next_page or url_for('index'))
 
-    return render_template('login.html')
+    return render_template('login.html', active_tab='login')
 
 
 @auth_bp.route('/logout')

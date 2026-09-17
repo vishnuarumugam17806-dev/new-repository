@@ -7,30 +7,30 @@
     <div class="col-lg-10">
         <div class="d-flex align-items-center gap-2 mb-3">
             <a href="/store" class="btn btn-outline-secondary btn-sm">
-                <i class="fa-solid fa-chevron-left me-1 text-icon-indigo"></i> Marketplace
+                <i class="fa-solid fa-chevron-left me-1"></i> DB Store
             </a>
             <span class="text-muted">/</span>
-            <span class="fw-bold text-dark fs-6">Target DBMS Deployment</span>
+            <span class="fw-bold text-dark fs-6">Deploy Database</span>
         </div>
 
         <div class="row g-4">
             <div class="col-md-5">
                 <div class="card shadow-sm p-4 h-100">
-                    <span class="badge-purple mb-2"><i class="fa-solid fa-sitemap me-1 text-icon-purple"></i> Database Architecture</span>
+                    <span class="badge bg-primary mb-2"><i class="fa-solid fa-sitemap me-1"></i> Database Info</span>
                     <h4 class="fw-bold text-dark mb-1">{{ database.project_name }}</h4>
                     <p class="text-secondary small mb-3">{{ database.requirements }}</p>
 
-                    <h6 class="fw-bold text-dark small mb-2"><i class="fa-solid fa-code me-1 text-icon-blue"></i>Target SQL DDL</h6>
-                    <div class="code-container p-3" style="max-height: 260px;">
-                        <pre class="m-0 text-info"><code>{{ database.sql_code }}</code></pre>
+                    <h6 class="fw-bold text-dark small mb-2"><i class="fa-solid fa-code me-1"></i> Target SQL</h6>
+                    <div class="p-3 bg-light rounded border font-monospace" style="max-height: 260px; overflow-y: auto;">
+                        <pre class="m-0 text-dark"><code>{{ database.sql_code }}</code></pre>
                     </div>
                 </div>
             </div>
 
             <div class="col-md-7">
                 <div class="card shadow-sm p-4">
-                    <h4 class="fw-bold text-dark mb-2"><i class="fa-solid fa-cloud-arrow-up text-icon-green me-2"></i>Execute Target Deployment</h4>
-                    <p class="text-secondary small mb-4">Select your target database engine and credentials. DB VITHRA will establish the link, verify the database schema, compile, and execute the DDL queries.</p>
+                    <h4 class="fw-bold text-dark mb-2"><i class="fa-solid fa-cloud-arrow-up text-primary me-2"></i>Deploy Database</h4>
+                    <p class="text-secondary small mb-4">Select your target database engine and enter connection details to deploy.</p>
 
                     <form method="POST">
                         <div class="mb-3">
@@ -77,7 +77,7 @@
                         </div>
 
                         <button type="submit" class="btn btn-success w-100 py-2 fw-bold">
-                            <i class="fa-solid fa-play me-1"></i> Deploy &amp; Build Database
+                            <i class="fa-solid fa-play me-1"></i> Deploy Database
                         </button>
                     </form>
                 </div>
@@ -89,11 +89,11 @@
             <div class="d-flex align-items-center justify-content-between mb-3">
                 <h5 class="fw-bold text-dark m-0"><i class="fa-solid fa-terminal text-primary me-2"></i>Deployment Logs</h5>
                 <span class="badge {% if success %}bg-success{% else %}bg-danger{% endif %} py-2 px-3 fw-bold text-white">
-                    {% if success %}<i class="fa-solid fa-check me-1"></i> COMPLETED{% else %}<i class="fa-solid fa-xmark me-1"></i> FAILED{% endif %}
+                    {% if success %}<i class="fa-solid fa-check me-1"></i> Completed{% else %}<i class="fa-solid fa-xmark me-1"></i> Failed{% endif %}
                 </span>
             </div>
 
-            <div class="code-container p-3" style="max-height: 250px;">
+            <div class="p-3 bg-dark rounded font-monospace" style="max-height: 250px; overflow-y: auto;">
                 <pre class="m-0 text-light"><code>{% for log in logs %}&gt; {{ log }}
 {% endfor %}</code></pre>
             </div>
@@ -101,20 +101,20 @@
             {% if success and download_url %}
             <div class="text-center py-3 mt-3">
                 <a href="{{ download_url }}" class="btn btn-success btn-lg px-5" download>
-                    <i class="fa-solid fa-download me-2"></i> Download SQLite .db File
+                    <i class="fa-solid fa-download me-2"></i> Download File
                 </a>
             </div>
             {% endif %}
 
             {% if success and not download_url %}
             <div class="mt-4 p-4 rounded bg-light border border-success text-center">
-                <h5 class="fw-bold text-success mb-2"><i class="fa-solid fa-circle-check me-1"></i> Database Live in Your System!</h5>
+                <h5 class="fw-bold text-success mb-2"><i class="fa-solid fa-circle-check me-1"></i> Database Live!</h5>
                 <p class="text-secondary small mb-3">
                     Database <strong class="text-dark">{{ db_name }}</strong> created on host <strong class="text-dark">{{ host }}</strong>.
                 </p>
                 <div class="d-flex justify-content-center gap-2">
-                    <a href="/database/{{ database.id }}" class="btn btn-outline-primary btn-sm px-3">View Schema Details</a>
-                    <a href="/store" class="btn btn-primary btn-sm px-3">Return to Catalog</a>
+                    <a href="/database/{{ database.id }}" class="btn btn-outline-primary btn-sm px-3">View Details</a>
+                    <a href="/store" class="btn btn-primary btn-sm px-3">DB Store</a>
                 </div>
             </div>
             {% endif %}

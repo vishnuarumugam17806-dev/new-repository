@@ -2,47 +2,80 @@
 {% block title %}Sign In — DB VITHRA{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center py-4">
-    <div class="col-md-5 col-lg-4">
-        <div class="text-center mb-4">
-            <img src="{{ url_for('static', filename='images/db_vithra_full.png') }}?v=5" alt="DB VITHRA Logo" class="img-fluid mb-2" style="max-height: 130px; width: auto; object-fit: contain;">
-            <p class="text-secondary small">Intelligent Database &amp; Data Management Platform</p>
-        </div>
+<div class="auth-split-wrapper">
+    <div class="container">
+        <div class="row align-items-center justify-content-center g-5">
+            <!-- Left Column: Brand Showcase -->
+            <div class="col-lg-6 col-md-10 text-center text-lg-start">
+                <div class="mb-4">
+                    <img src="{{ url_for('static', filename='images/db_vithra_full.png') }}?v=6" alt="DB VITHRA" class="img-fluid" style="max-height: 180px; width: auto; object-fit: contain;">
+                </div>
+                <h1 class="fw-bold text-dark fs-2 mb-2">Where Data Meets Intelligence.</h1>
+                <p class="text-secondary fs-6 mb-4" style="max-width: 480px;">
+                    AI-Powered Universal Database &amp; Data Management Platform across SQL Server, MySQL, Oracle, MongoDB, and Excel.
+                </p>
 
-        <div class="card shadow-sm p-4">
-            <form method="POST" action="{{ url_for('auth.login') }}" id="loginForm">
-                <div class="mb-3">
-                    <label for="username" class="form-label">Username</label>
-                    <div class="input-group">
-                        <span class="input-group-text bg-light text-muted"><i class="fa-solid fa-user"></i></span>
-                        <input type="text" class="form-control" id="username" name="username"
-                               placeholder="Enter your username" required autocomplete="username">
+                <div class="p-3 bg-light border rounded-3 mb-3 d-inline-block text-start" style="max-width: 480px;">
+                    <div class="small text-secondary mb-1">
+                        <i class="fa-solid fa-circle-info text-primary me-2"></i><strong>New users:</strong> Please register first to access your platform.
+                    </div>
+                    <div class="small text-secondary">
+                        <i class="fa-solid fa-circle-check text-success me-2"></i><strong>Existing users:</strong> Log in directly with your username and password.
                     </div>
                 </div>
+            </div>
 
-                <div class="mb-3">
-                    <label for="password" class="form-label">Password</label>
-                    <div class="input-group">
-                        <span class="input-group-text bg-light text-muted"><i class="fa-solid fa-key"></i></span>
-                        <input type="password" class="form-control" id="password" name="password"
-                               placeholder="Enter your password" required autocomplete="current-password">
-                        <button type="button" class="btn btn-outline-secondary" onclick="togglePass('password', this)" title="Toggle password visibility">
-                            <i class="fa-solid fa-eye" id="passEye"></i>
+            <!-- Right Column: Authentication Card with Tabs -->
+            <div class="col-lg-5 col-md-8 col-sm-11">
+                <div class="auth-card">
+                    <!-- Tab Switcher -->
+                    <div class="auth-tabs mb-4">
+                        <a href="{{ url_for('auth.login') }}" class="auth-tab-btn active">
+                            <i class="fa-solid fa-right-to-bracket me-1"></i> Log In
+                        </a>
+                        <a href="{{ url_for('auth.register') }}" class="auth-tab-btn">
+                            <i class="fa-solid fa-user-plus me-1"></i> Register
+                        </a>
+                    </div>
+
+                    <div class="mb-3">
+                        <h2 class="fw-bold text-dark fs-4 mb-1">Welcome Back</h2>
+                        <p class="text-secondary small mb-0">Enter your credentials to access your databases.</p>
+                    </div>
+
+                    <form method="POST" action="{{ url_for('auth.login') }}" id="loginForm">
+                        <div class="mb-3">
+                            <label for="username" class="form-label fw-semibold small text-dark">Username</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light text-muted"><i class="fa-solid fa-user"></i></span>
+                                <input type="text" class="form-control" id="username" name="username"
+                                       placeholder="Enter your username" required autocomplete="username">
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <label for="password" class="form-label fw-semibold small text-dark">Password</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light text-muted"><i class="fa-solid fa-lock"></i></span>
+                                <input type="password" class="form-control" id="password" name="password"
+                                       placeholder="Enter your password" required autocomplete="current-password">
+                                <button type="button" class="btn btn-outline-secondary" onclick="togglePass('password', this)" title="Toggle password visibility">
+                                    <i class="fa-solid fa-eye" id="passEye"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary w-100 py-2 fw-semibold" id="loginBtn">
+                            <i class="fa-solid fa-right-to-bracket me-2"></i> Log In
                         </button>
+                    </form>
+
+                    <div class="mt-4 pt-3 border-top text-center">
+                        <span class="text-secondary small">New to DB VITHRA?</span>
+                        <a href="{{ url_for('auth.register') }}" class="fw-bold text-primary small ms-1">Register first</a>
                     </div>
                 </div>
-
-                <button type="submit" class="btn btn-primary w-100 py-2 mt-2" id="loginBtn">
-                    <i class="fa-solid fa-right-to-bracket me-1"></i> Sign In
-                </button>
-            </form>
-
-            <hr class="my-4">
-
-            <p class="text-center text-secondary small mb-0">
-                Don't have an account?
-                <a href="{{ url_for('auth.register') }}" class="fw-bold text-primary">Create an account</a>
-            </p>
+            </div>
         </div>
     </div>
 </div>
@@ -63,7 +96,7 @@ function togglePass(id, btn) {
 }
 document.getElementById('loginForm').addEventListener('submit', function() {
     const btn = document.getElementById('loginBtn');
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Authenticating...';
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Logging in...';
     btn.disabled = true;
 });
 </script>

@@ -27,8 +27,8 @@
             <h5 class="fw-bold mb-3 text-dark"><i class="fa-solid fa-user-gear text-primary me-2"></i>Account Settings</h5>
             <form method="POST" action="{{ url_for('auth.profile') }}">
                 <div class="mb-4">
-                    <label for="bio" class="form-label">User Biography &amp; Technical Profile</label>
-                    <textarea class="form-control" id="bio" name="bio" rows="4" placeholder="Describe your technical profile, stack, or database preferences...">{{ current_user.bio or '' }}</textarea>
+                    <label for="bio" class="form-label">Bio</label>
+                    <textarea class="form-control" id="bio" name="bio" rows="4" placeholder="Tell us about yourself or your database preferences...">{{ current_user.bio or '' }}</textarea>
                 </div>
 
                 <div class="mb-4">
@@ -51,7 +51,7 @@
                         <i class="fa-solid fa-gauge-high me-1"></i> Dashboard
                     </a>
                     <button type="submit" class="btn btn-primary px-4">
-                        <i class="fa-solid fa-floppy-disk me-1"></i> Save Profile
+                        <i class="fa-solid fa-floppy-disk me-1"></i> Save Changes
                     </button>
                 </div>
             </form>

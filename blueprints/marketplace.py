@@ -4,7 +4,7 @@ Handles schema marketplace, comments, likes, and ratings.
 """
 import re
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
-from flask_login import current_user
+from flask_login import current_user, login_required
 from sqlalchemy import or_
 from models import db, SharedDatabase, Comment, Rating
 from utils import _track, translate_sql
@@ -12,6 +12,7 @@ from utils import _track, translate_sql
 marketplace_bp = Blueprint('marketplace', __name__)
 
 @marketplace_bp.route('/store')
+@login_required
 def store():
     search_query = request.args.get('q', '').strip()
     industry     = request.args.get('industry', '').strip()

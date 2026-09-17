@@ -47,34 +47,34 @@
     <!-- Breadcrumb -->
     <div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
         <a href="/database/{{ database.id }}" class="btn btn-sm btn-outline-secondary">
-            <i class="fa-solid fa-chevron-left me-1 text-icon-indigo"></i> Back to Schema
+            <i class="fa-solid fa-chevron-left me-1"></i> View Details
         </a>
         <span class="text-muted">/</span>
-        <span class="fw-bold text-dark fs-6"><i class="fa-solid fa-diagram-project me-1 text-icon-purple"></i> ER Diagram Visualizer</span>
-        <span class="badge-purple">{{ database.project_name }}</span>
+        <span class="fw-bold text-dark fs-6"><i class="fa-solid fa-diagram-project me-1 text-primary"></i> ER Diagram</span>
+        <span class="badge bg-primary">{{ database.project_name }}</span>
     </div>
 
     <!-- Toolbar -->
     <div class="er-toolbar">
         <span class="fw-bold text-dark fs-6">
-            <i class="fa-solid fa-database text-icon-blue me-1"></i> {{ database.project_name }}
+            <i class="fa-solid fa-database text-primary me-1"></i> {{ database.project_name }}
         </span>
         <div class="d-flex align-items-center gap-2 ms-auto">
             <button class="btn btn-sm btn-outline-secondary" onclick="zoomOut()" title="Zoom Out">
-                <i class="fa-solid fa-magnifying-glass-minus text-icon-amber"></i>
+                <i class="fa-solid fa-magnifying-glass-minus"></i>
             </button>
             <span class="zoom-info" id="zoomLabel">100%</span>
             <button class="btn btn-sm btn-outline-secondary" onclick="zoomIn()" title="Zoom In">
-                <i class="fa-solid fa-magnifying-glass-plus text-icon-amber"></i>
+                <i class="fa-solid fa-magnifying-glass-plus"></i>
             </button>
             <button class="btn btn-sm btn-outline-secondary" onclick="resetZoom()" title="Reset Zoom">
-                <i class="fa-solid fa-expand text-icon-cyan"></i>
+                <i class="fa-solid fa-expand"></i>
             </button>
-            <button class="btn btn-sm btn-purple" onclick="exportPNG()">
+            <button class="btn btn-sm btn-primary" onclick="exportPNG()">
                 <i class="fa-solid fa-image me-1"></i> Export PNG
             </button>
-            <button class="btn btn-sm btn-outline-purple" onclick="exportSVG()">
-                <i class="fa-solid fa-file-code me-1 text-icon-purple"></i> Export SVG
+            <button class="btn btn-sm btn-outline-secondary" onclick="exportSVG()">
+                <i class="fa-solid fa-file-code me-1"></i> Export SVG
             </button>
         </div>
     </div>
@@ -86,10 +86,10 @@
             <div class="mermaid" id="er-diagram">{{ database.er_diagram_mmd }}</div>
             {% else %}
             <div class="text-center py-5 text-muted">
-                <i class="fa-solid fa-diagram-project fs-1 mb-2 text-icon-purple"></i>
+                <i class="fa-solid fa-diagram-project fs-1 mb-2 text-primary"></i>
                 <h5 class="fw-bold text-dark">No ER diagram available</h5>
-                <p class="small">Re-generate this schema with AI to construct the Mermaid diagram.</p>
-                <a href="/create" class="btn btn-purple px-4 mt-2"><i class="fa-solid fa-wand-magic-sparkles me-1"></i> Generate New Schema</a>
+                <p class="small">Create or generate this schema to construct the diagram.</p>
+                <a href="/create" class="btn btn-primary px-4 mt-2"><i class="fa-solid fa-plus me-1"></i> Create Database</a>
             </div>
             {% endif %}
         </div>
@@ -99,9 +99,9 @@
     {% if database.er_diagram_mmd %}
     <div class="card shadow-sm mt-4 p-4">
         <div class="d-flex align-items-center justify-content-between mb-2">
-            <h6 class="fw-bold text-dark mb-0"><i class="fa-solid fa-code text-primary me-2"></i>Mermaid Source Code</h6>
+            <h6 class="fw-bold text-dark mb-0"><i class="fa-solid fa-code text-primary me-2"></i>Mermaid Code</h6>
             <button class="btn btn-outline-secondary btn-sm" onclick="copyMMD()">
-                <i class="fa-solid fa-copy me-1"></i> Copy Mermaid
+                <i class="fa-solid fa-copy me-1"></i> Copy Code
             </button>
         </div>
         <div class="code-container p-3" style="max-height:250px;">

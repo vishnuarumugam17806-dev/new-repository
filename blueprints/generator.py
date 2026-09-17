@@ -10,7 +10,7 @@ import json
 import logging
 from urllib.parse import quote_plus
 from flask import Blueprint, render_template, request, redirect, url_for, flash, Response, jsonify, send_file, session
-from flask_login import current_user
+from flask_login import current_user, login_required
 import config as cfg
 from models import db, SharedDatabase, SchemaVersion, DownloadLog, Comment, DatabaseInstance
 from ai_engine.schema_agent import agent as ai_agent
@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 generator_bp = Blueprint('generator', __name__)
 
 @generator_bp.route('/create', methods=['GET'])
+@login_required
 def create_database():
     initial_db_type = request.args.get('db_type', 'sqlserver').lower()
     default_instance = SqlServerService.get_server()
@@ -461,6 +462,7 @@ def build_from_file_ai():
 
 
 @generator_bp.route('/database/<int:db_id>')
+@login_required
 def database_details(db_id):
     database = db.session.get(SharedDatabase, db_id)
     if database is None:
@@ -491,6 +493,7 @@ def database_details(db_id):
 
 
 @generator_bp.route('/database/<int:db_id>/er-diagram')
+@login_required
 def er_diagram_view(db_id):
     database = db.session.get(SharedDatabase, db_id)
     if database is None:

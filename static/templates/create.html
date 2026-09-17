@@ -8,90 +8,90 @@
     <!-- Header Section -->
     <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-3">
         <div>
-            <h1 class="fw-bold mb-1 text-dark"><i class="fa-solid fa-wand-magic-sparkles text-icon-purple me-2"></i>Multi-Database Generation &amp; Architect Platform</h1>
-            <p class="text-secondary mb-0">Select your database target specification, connect/create instances, and configure data structures interactively.</p>
+            <h1 class="fw-bold mb-1 text-dark fs-3"><i class="fa-solid fa-plus-circle text-primary me-2"></i>Create Database</h1>
+            <p class="text-secondary mb-0 small">Select your database engine, connect to your server, and set up your tables.</p>
         </div>
         <div class="d-flex align-items-center gap-2">
-            <button class="btn btn-outline-purple btn-sm" onclick="resetWorkflow()">
-                <i class="fa-solid fa-rotate-left me-1"></i> Reset Workflow
+            <button class="btn btn-outline-secondary btn-sm" onclick="resetWorkflow()">
+                <i class="fa-solid fa-rotate-left me-1"></i> Reset
             </button>
         </div>
     </div>
 
     <!-- ── Step 1: Select Database Specification Cards ── -->
-    <div class="card shadow-md border-0 rounded-4 mb-4 bg-white">
+    <div class="card shadow-sm border rounded-4 mb-4 bg-white">
         <div class="card-header border-bottom py-3 px-4 d-flex align-items-center justify-content-between bg-light">
             <div class="d-flex align-items-center gap-2">
-                <div class="badge bg-purple text-white px-2 py-1 rounded">STEP 1</div>
-                <h5 class="fw-bold m-0 text-dark"><i class="fa-solid fa-layer-group text-icon-cyan me-2"></i>Select Database Specification</h5>
+                <span class="badge bg-primary px-2 py-1">STEP 1</span>
+                <h5 class="fw-bold m-0 text-dark">Select Database Engine</h5>
             </div>
-            <span class="text-secondary small">Click a platform specification to begin</span>
+            <span class="text-secondary small">Click an engine to continue</span>
         </div>
 
         <div class="card-body p-4">
             <div class="row g-3" id="specCardsRow">
                 <!-- SQL SERVER CARD -->
                 <div class="col-md-4 col-sm-6">
-                    <div class="spec-card card h-100 p-3 bg-white border rounded-3 cursor-pointer" onclick="selectSpecification('sqlserver')" id="spec-card-sqlserver">
-                        <div class="d-flex align-items-center justify-content-between mb-2">
-                            <div class="icon-box icon-box-md bg-purple text-white rounded-circle"><i class="fa-solid fa-database"></i></div>
-                            <span class="badge-purple">SQL SERVER</span>
+                    <div class="vithra-card p-3 cursor-pointer" onclick="selectSpecification('sqlserver')" id="spec-card-sqlserver">
+                        <div class="d-flex align-items-center justify-content-between mb-3">
+                            <div class="feature-icon-box icon-box-blue"><i class="fa-solid fa-database"></i></div>
+                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle">SQL SERVER</span>
                         </div>
                         <h5 class="fw-bold text-dark mb-1">Microsoft SQL Server</h5>
-                        <p class="text-secondary small mb-2">Enterprise relational engine with T-SQL, identity keys, stored procedures &amp; foreign keys.</p>
-                        <div class="small text-purple fw-semibold"><i class="fa-solid fa-check me-1"></i> T-SQL • Primary Keys • FK • Transactions</div>
+                        <p class="text-secondary small mb-2">Relational engine with tables, primary keys, identity columns, and relationships.</p>
+                        <div class="small text-primary fw-semibold"><i class="fa-solid fa-check me-1"></i> T-SQL • Tables • Primary Keys</div>
                     </div>
                 </div>
 
                 <!-- MYSQL CARD -->
                 <div class="col-md-4 col-sm-6">
-                    <div class="spec-card card h-100 p-3 bg-white border rounded-3 cursor-pointer" onclick="selectSpecification('mysql')" id="spec-card-mysql">
-                        <div class="d-flex align-items-center justify-content-between mb-2">
-                            <div class="icon-box icon-box-md bg-info text-white rounded-circle"><i class="fa-solid fa-server"></i></div>
-                            <span class="badge-blue">MYSQL</span>
+                    <div class="vithra-card p-3 cursor-pointer" onclick="selectSpecification('mysql')" id="spec-card-mysql">
+                        <div class="d-flex align-items-center justify-content-between mb-3">
+                            <div class="feature-icon-box icon-box-teal"><i class="fa-solid fa-server"></i></div>
+                            <span class="badge bg-info-subtle text-info-emphasis border">MYSQL</span>
                         </div>
                         <h5 class="fw-bold text-dark mb-1">MySQL Engine</h5>
-                        <p class="text-secondary small mb-2">High-performance open-source relational engine with AUTO_INCREMENT, InnoDB, and UTF8MB4 support.</p>
-                        <div class="small text-cyan fw-semibold"><i class="fa-solid fa-check me-1"></i> MySQL DDL • AUTO_INC • Foreign Keys</div>
+                        <p class="text-secondary small mb-2">Open-source database with AUTO_INCREMENT, InnoDB, and indexes.</p>
+                        <div class="small text-info-emphasis fw-semibold"><i class="fa-solid fa-check me-1"></i> MySQL DDL • Foreign Keys</div>
                     </div>
                 </div>
 
                 <!-- ORACLE CARD -->
                 <div class="col-md-4 col-sm-6">
-                    <div class="spec-card card h-100 p-3 bg-white border rounded-3 cursor-pointer" onclick="selectSpecification('oracle')" id="spec-card-oracle">
-                        <div class="d-flex align-items-center justify-content-between mb-2">
-                            <div class="icon-box icon-box-md bg-danger text-white rounded-circle"><i class="fa-solid fa-building-columns"></i></div>
-                            <span class="badge bg-danger-subtle text-danger border border-danger">ORACLE</span>
+                    <div class="vithra-card p-3 cursor-pointer" onclick="selectSpecification('oracle')" id="spec-card-oracle">
+                        <div class="d-flex align-items-center justify-content-between mb-3">
+                            <div class="feature-icon-box icon-box-red"><i class="fa-solid fa-building-columns"></i></div>
+                            <span class="badge bg-danger-subtle text-danger border border-danger-subtle">ORACLE</span>
                         </div>
                         <h5 class="fw-bold text-dark mb-1">Oracle Database</h5>
-                        <p class="text-secondary small mb-2">Enterprise-grade PL/SQL relational platform with robust schemas &amp; dictionary views.</p>
-                        <div class="small text-danger fw-semibold"><i class="fa-solid fa-check me-1"></i> PL/SQL • Schemas • Sequences • Views</div>
+                        <p class="text-secondary small mb-2">Relational platform with schema management and data dictionary views.</p>
+                        <div class="small text-danger fw-semibold"><i class="fa-solid fa-check me-1"></i> PL/SQL • Schemas • Views</div>
                     </div>
                 </div>
 
                 <!-- MONGODB CARD -->
                 <div class="col-md-4 col-sm-6">
-                    <div class="spec-card card h-100 p-3 bg-white border rounded-3 cursor-pointer" onclick="selectSpecification('mongodb')" id="spec-card-mongodb">
-                        <div class="d-flex align-items-center justify-content-between mb-2">
-                            <div class="icon-box icon-box-md bg-success text-white rounded-circle"><i class="fa-solid fa-leaf"></i></div>
-                            <span class="badge-green">MONGODB</span>
+                    <div class="vithra-card p-3 cursor-pointer" onclick="selectSpecification('mongodb')" id="spec-card-mongodb">
+                        <div class="d-flex align-items-center justify-content-between mb-3">
+                            <div class="feature-icon-box icon-box-green"><i class="fa-solid fa-leaf"></i></div>
+                            <span class="badge bg-success-subtle text-success border border-success-subtle">MONGODB</span>
                         </div>
                         <h5 class="fw-bold text-dark mb-1">MongoDB (NoSQL)</h5>
-                        <p class="text-secondary small mb-2">Flexible BSON document store with collections, nested objects, arrays, and pipelines.</p>
-                        <div class="small text-success fw-semibold"><i class="fa-solid fa-check me-1"></i> BSON Documents • Collections • Aggregations</div>
+                        <p class="text-secondary small mb-2">Document database with collections, JSON records, and arrays.</p>
+                        <div class="small text-success fw-semibold"><i class="fa-solid fa-check me-1"></i> BSON Documents • Collections</div>
                     </div>
                 </div>
 
                 <!-- EXCEL CARD -->
                 <div class="col-md-4 col-sm-6">
-                    <div class="spec-card card h-100 p-3 bg-white border rounded-3 cursor-pointer" onclick="selectSpecification('excel')" id="spec-card-excel">
-                        <div class="d-flex align-items-center justify-content-between mb-2">
-                            <div class="icon-box icon-box-md bg-warning text-dark rounded-circle"><i class="fa-solid fa-file-excel"></i></div>
-                            <span class="badge-yellow">EXCEL</span>
+                    <div class="vithra-card p-3 cursor-pointer" onclick="selectSpecification('excel')" id="spec-card-excel">
+                        <div class="d-flex align-items-center justify-content-between mb-3">
+                            <div class="feature-icon-box icon-box-amber"><i class="fa-solid fa-file-excel"></i></div>
+                            <span class="badge bg-warning-subtle text-warning-emphasis border">EXCEL</span>
                         </div>
                         <h5 class="fw-bold text-dark mb-1">Excel &amp; Workbooks</h5>
-                        <p class="text-secondary small mb-2">Spreadsheet workspace engine with multiple worksheets, openpyxl styling, and formulas.</p>
-                        <div class="small text-warning fw-semibold"><i class="fa-solid fa-check me-1"></i> Worksheets • Cell Grid • Formulas • Charts</div>
+                        <p class="text-secondary small mb-2">Spreadsheet data workspace with worksheets, cell grid, and formulas.</p>
+                        <div class="small text-warning-emphasis fw-semibold"><i class="fa-solid fa-check me-1"></i> Worksheets • Cell Grid</div>
                     </div>
                 </div>
             </div>
@@ -99,11 +99,11 @@
     </div>
 
     <!-- ── Step 2: Connection & Instance Config Panel ── -->
-    <div class="card shadow-md border-0 rounded-4 mb-4 d-none bg-white" id="instanceConfigPanel">
+    <div class="card shadow-sm border rounded-4 mb-4 d-none bg-white" id="instanceConfigPanel">
         <div class="card-header border-bottom py-3 px-4 d-flex align-items-center justify-content-between bg-light">
             <div class="d-flex align-items-center gap-2">
-                <div class="badge bg-purple text-white px-2 py-1 rounded">STEP 2</div>
-                <h5 class="fw-bold m-0 text-dark"><i class="fa-solid fa-plug text-icon-amber me-2"></i>Select Instance / Connection Credentials</h5>
+                <span class="badge bg-primary px-2 py-1">STEP 2</span>
+                <h5 class="fw-bold m-0 text-dark">Connection Credentials</h5>
             </div>
             <span class="badge bg-secondary" id="activeSpecBadge">SQL SERVER</span>
         </div>
@@ -111,33 +111,35 @@
         <div class="card-body p-4">
             <div class="row g-3">
                 <div class="col-md-6" id="hostFieldCol">
-                    <label class="form-label text-dark small fw-bold" id="hostLabel">Server / Instance Name</label>
-                    <input type="text" id="connHost" class="form-control bg-white text-dark border-secondary" placeholder="localhost\SQLEXPRESS04">
+                    <label class="form-label text-dark small fw-semibold" id="hostLabel">Server / Host</label>
+                    <input type="text" id="connHost" class="form-control bg-white text-dark border" placeholder="localhost\SQLEXPRESS04">
                 </div>
                 <div class="col-md-3" id="portFieldCol">
-                    <label class="form-label text-dark small fw-bold">Port</label>
-                    <input type="number" id="connPort" class="form-control bg-white text-dark border-secondary" placeholder="3306">
+                    <label class="form-label text-dark small fw-semibold">Port</label>
+                    <input type="number" id="connPort" class="form-control bg-white text-dark border" placeholder="3306">
                 </div>
                 <div class="col-md-3" id="serviceFieldCol">
-                    <label class="form-label text-dark small fw-bold">Service / SID</label>
-                    <input type="text" id="connService" class="form-control bg-white text-dark border-secondary" placeholder="XE">
+                    <label class="form-label text-dark small fw-semibold">Service / SID</label>
+                    <input type="text" id="connService" class="form-control bg-white text-dark border" placeholder="XE">
                 </div>
                 <div class="col-md-6" id="userFieldCol">
-                    <label class="form-label text-dark small fw-bold">Username</label>
-                    <input type="text" id="connUser" class="form-control bg-white text-dark border-secondary" placeholder="sa / root / system">
+                    <label class="form-label text-dark small fw-semibold">Username</label>
+                    <input type="text" id="connUser" class="form-control bg-white text-dark border" placeholder="sa / root">
                 </div>
                 <div class="col-md-6" id="passFieldCol">
-                    <label class="form-label text-dark small fw-bold">Password</label>
-                    <input type="password" id="connPass" class="form-control bg-white text-dark border-secondary" placeholder="••••••••">
+                    <label class="form-label text-dark small fw-semibold">Password</label>
+                    <input type="password" id="connPass" class="form-control bg-white text-dark border" placeholder="••••••••">
                 </div>
             </div>
 
             <!-- Test Connection Button & Result Alert -->
             <div class="d-flex align-items-center justify-content-between mt-4">
-                <button type="button" class="btn btn-outline-cyan px-4 fw-semibold" onclick="testConnection()">
-                    <i class="fa-solid fa-network-wired me-1"></i> TEST CONNECTION
+                <button type="button" class="btn btn-outline-primary px-4 fw-semibold" onclick="testConnection()">
+                    <i class="fa-solid fa-plug me-1"></i> Test Connection
                 </button>
-                <button type="button" class="btn btn-purple px-4 fw-semibold" onclick="confirmInstanceConfig()">
+                <button type="button" class="btn btn-primary px-4 fw-semibold" onclick="confirmInstanceConfig()">
+                    <span>Continue to Setup</span> <i class="fa-solid fa-arrow-right ms-1"></i>
+                </button>
                     Next: Database Name <i class="fa-solid fa-arrow-right ms-1"></i>
                 </button>
             </div>

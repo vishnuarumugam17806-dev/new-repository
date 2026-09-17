@@ -3,8 +3,8 @@ DB VITHRA — AI-Powered Universal Database & Data Management Platform
 Main Flask application entry point.
 """
 import os
-from flask import Flask, render_template
-from flask_login import LoginManager
+from flask import Flask, render_template, redirect, url_for
+from flask_login import LoginManager, current_user
 
 # ── Load env & config ──────────────────────────────────────────────────────────
 from dotenv import load_dotenv
@@ -54,10 +54,9 @@ app.register_blueprint(crud_bp)
 # ── Home Landing Route ────────────────────────────────────────────────────────
 @app.route('/')
 def index():
-    total_schemas  = SharedDatabase.query.count()
-    total_downloads = DownloadLog.query.count()
-    return render_template('index.html', total_schemas=total_schemas,
-                           total_downloads=total_downloads, ai_enabled=cfg.AI_ENABLED)
+    if current_user.is_authenticated:
+        return redirect(url_for('auth.dashboard'))
+    return render_template('login.html', active_tab='register')
 
 
 # ── Favicon Handlers ──────────────────────────────────────────────────────────

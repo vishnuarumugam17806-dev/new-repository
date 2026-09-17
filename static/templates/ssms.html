@@ -8,7 +8,7 @@
 
         <div class="d-flex align-items-center gap-2 mb-3">
             <a href="/store" class="btn btn-outline-secondary btn-sm">
-                <i class="fa-solid fa-chevron-left me-1 text-icon-indigo"></i> Marketplace
+                <i class="fa-solid fa-chevron-left me-1"></i> DB Store
             </a>
             <span class="text-muted">/</span>
             <a href="/database/{{ database.id }}" class="btn btn-outline-secondary btn-sm">{{ database.project_name }}</a>
@@ -19,13 +19,13 @@
         <div class="row g-4">
             <div class="col-md-5">
                 <div class="card shadow-sm p-4 h-100">
-                    <span class="badge-purple mb-2"><i class="fa-solid fa-code me-1 text-icon-purple"></i> DDL Script Payload</span>
+                    <span class="badge bg-primary mb-2"><i class="fa-solid fa-code me-1"></i> SQL Script</span>
                     <h4 class="fw-bold text-dark mb-1">{{ database.project_name }}</h4>
                     <p class="text-secondary small mb-3">{{ database.requirements }}</p>
 
-                    <h6 class="fw-bold text-dark small mb-2"><i class="fa-solid fa-database me-1 text-icon-blue"></i>MS SQL Server DDL Script</h6>
-                    <div class="code-container p-3" style="max-height:300px; font-size:0.78rem;">
-                        <pre class="m-0 text-info"><code>{{ database.sql_code }}</code></pre>
+                    <h6 class="fw-bold text-dark small mb-2"><i class="fa-solid fa-database me-1"></i> SQL Script</h6>
+                    <div class="p-3 bg-light rounded border font-monospace" style="max-height:300px; font-size:0.78rem; overflow-y: auto;">
+                        <pre class="m-0 text-dark"><code>{{ database.sql_code }}</code></pre>
                     </div>
                 </div>
             </div>
@@ -33,15 +33,15 @@
             <div class="col-md-7">
                 <div class="card shadow-sm p-4">
                     <div class="d-flex align-items-center gap-3 mb-4 p-3 bg-light border rounded">
-                        <div class="icon-box icon-box-lg icon-box-primary text-white" style="background: linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%);">
+                        <div class="feature-icon-box icon-box-blue">
                             <i class="fa-solid fa-server"></i>
                         </div>
                         <div>
                             <h5 class="fw-bold text-dark mb-0">SQL Server Management Studio</h5>
-                            <p class="text-secondary small mb-0">Direct native deployment engine</p>
+                            <p class="text-secondary small mb-0">Native connection engine</p>
                         </div>
                         <div id="ssms-status" class="ms-auto">
-                            <span class="badge-green px-3 py-2" id="driver-badge"><i class="fa-solid fa-check me-1 text-icon-green"></i> Driver Ready</span>
+                            <span class="badge bg-success px-3 py-2" id="driver-badge"><i class="fa-solid fa-check me-1"></i> Driver Ready</span>
                         </div>
                     </div>
 
@@ -59,14 +59,14 @@
                             <label class="form-label">Authentication Mode</label>
                             <div class="d-flex gap-2">
                                 <button type="button" id="btnWinAuth"
-                                        class="btn flex-fill {% if auth_mode != 'sql' %}btn-purple{% else %}btn-outline-secondary{% endif %}"
+                                        class="btn flex-fill {% if auth_mode != 'sql' %}btn-primary{% else %}btn-outline-secondary{% endif %}"
                                         onclick="setAuth('windows')">
-                                    <i class="fa-brands fa-windows me-1 text-icon-cyan"></i> Windows Auth
+                                    <i class="fa-brands fa-windows me-1"></i> Windows Auth
                                 </button>
                                 <button type="button" id="btnSqlAuth"
-                                        class="btn flex-fill {% if auth_mode == 'sql' %}btn-purple{% else %}btn-outline-secondary{% endif %}"
+                                        class="btn flex-fill {% if auth_mode == 'sql' %}btn-primary{% else %}btn-outline-secondary{% endif %}"
                                         onclick="setAuth('sql')">
-                                    <i class="fa-solid fa-key me-1 text-icon-amber"></i> SQL Server Auth
+                                    <i class="fa-solid fa-key me-1"></i> SQL Server Auth
                                 </button>
                             </div>
                             <input type="hidden" name="auth_mode" id="auth_mode_input" value="{{ auth_mode or 'windows' }}">
@@ -88,7 +88,7 @@
 
                         <div id="winAuthInfo" class="{% if auth_mode == 'sql' %}d-none{% endif %} mb-3">
                             <div class="p-3 bg-light border border-success rounded">
-                                <span class="text-success small fw-bold"><i class="fa-solid fa-shield-check me-1 text-icon-green"></i> Using Windows Integrated Authentication (Trusted Connection)</span>
+                                <span class="text-success small fw-bold"><i class="fa-solid fa-circle-check me-1"></i> Using Windows Integrated Authentication (Trusted Connection)</span>
                             </div>
                         </div>
 
@@ -100,8 +100,8 @@
                                    required>
                         </div>
 
-                        <button type="submit" class="btn btn-purple w-100 py-2 fw-bold" id="submitBtn">
-                            <i class="fa-solid fa-paper-plane me-1"></i> Execute &amp; Push to SQL Server
+                        <button type="submit" class="btn btn-primary w-100 py-2 fw-bold" id="submitBtn">
+                            <i class="fa-solid fa-paper-plane me-1"></i> Push to SQL Server
                         </button>
                     </form>
                 </div>

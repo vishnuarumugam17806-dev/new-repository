@@ -4,12 +4,14 @@ Computes multi-database statistics across SQL Server, MySQL, Oracle, MongoDB, an
 """
 from datetime import datetime, timedelta
 from flask import Blueprint, render_template, jsonify
+from flask_login import login_required
 from sqlalchemy import func
 from models import db, SharedDatabase, DownloadLog
 
 analytics_bp = Blueprint('analytics', __name__)
 
 @analytics_bp.route('/analytics')
+@login_required
 def analytics():
     total_schemas    = SharedDatabase.query.count()
     total_downloads  = DownloadLog.query.count()

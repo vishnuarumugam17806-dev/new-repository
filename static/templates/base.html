@@ -28,21 +28,6 @@
     {% block extra_head %}{% endblock %}
 </head>
 <body>
-    <!-- ── Enterprise Top Utility Bar (Light Theme) ────────────────────────── -->
-    <div class="gov-top-bar">
-        <div class="container d-flex justify-content-between align-items-center">
-            <div class="d-flex align-items-center gap-3">
-                <span><i class="fa-solid fa-building-columns me-1 text-purple"></i> Official System Portal</span>
-                <span class="d-none d-md-inline text-muted">|</span>
-                <span class="d-none d-md-inline"><i class="fa-solid fa-shield-halved me-1 text-success"></i> Enterprise Security &amp; Accessibility Standard</span>
-            </div>
-            <div class="d-flex align-items-center gap-3">
-                <a href="/crud"><i class="fa-solid fa-database me-1 text-purple"></i> Data Explorer</a>
-                <a href="/store"><i class="fa-solid fa-boxes-stacked me-1 text-cyan"></i> Catalog</a>
-                <a href="#footer-help"><i class="fa-solid fa-headset me-1 text-danger"></i> Support</a>
-            </div>
-        </div>
-    </div>
 
     <!-- ── Main Site Header with Official Logo ────────────────────────────────── -->
     <header class="site-header navbar navbar-expand-lg">
@@ -66,67 +51,56 @@
                 </form>
 
                 <ul class="navbar-nav ms-auto align-items-lg-center gap-1">
+                    {% if current_user.is_authenticated %}
                     <li class="nav-item">
-                        <a class="nav-link {% if request.path == '/' %}active{% endif %}" href="/">
-                            <i class="fa-solid fa-house me-1 text-primary"></i> <span>Home</span>
+                        <a class="nav-link {% if request.path == '/' or request.path == '/dashboard' %}active{% endif %}" href="{{ url_for('auth.dashboard') }}">
+                            <i class="fa-solid fa-gauge-high me-1 text-primary"></i> <span>Dashboard</span>
                         </a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link {% if request.path == '/create' %}active{% endif %}" href="/create">
-                            <i class="fa-solid fa-wand-magic-sparkles me-1 text-purple"></i> <span>AI Generator</span>
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link {% if request.path == '/store' %}active{% endif %}" href="/store">
-                            <i class="fa-solid fa-boxes-stacked me-1 text-success"></i> <span>Marketplace</span>
+                            <i class="fa-solid fa-plus-circle me-1 text-primary"></i> <span>Generate Database</span>
                         </a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link {% if request.path == '/crud' %}active{% endif %}" href="/crud">
-                            <i class="fa-solid fa-database me-1 text-indigo"></i> <span>Data Explorer</span>
+                            <i class="fa-solid fa-database me-1 text-primary"></i> <span>Database Explorer</span>
                         </a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link {% if request.path == '/query-assistant' %}active{% endif %}" href="/query-assistant">
-                            <i class="fa-solid fa-comments me-1 text-cyan"></i> <span>Query AI</span>
+                            <i class="fa-solid fa-comments me-1 text-primary"></i> <span>Ask AI</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.path == '/store' %}active{% endif %}" href="/store">
+                            <i class="fa-solid fa-boxes-stacked me-1 text-primary"></i> <span>DB Store</span>
                         </a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link {% if request.path == '/analytics' %}active{% endif %}" href="/analytics">
-                            <i class="fa-solid fa-chart-line me-1 text-danger"></i> <span>Analytics</span>
+                            <i class="fa-solid fa-chart-line me-1 text-primary"></i> <span>Analytics</span>
                         </a>
                     </li>
 
-                    <li class="nav-item ms-lg-2">
-                        <a class="btn btn-purple btn-sm px-3" href="/create">
-                            <i class="fa-solid fa-plus me-1"></i> Create New
-                        </a>
-                    </li>
-
-                    {% if current_user.is_authenticated %}
-                    <li class="nav-item ms-lg-2">
-                        <a class="nav-link {% if request.path == '/dashboard' %}active{% endif %}" href="{{ url_for('auth.dashboard') }}">
-                            <i class="fa-solid fa-gauge-high me-1 text-warning"></i> <span>Dashboard</span>
-                        </a>
-                    </li>
-                    <li class="nav-item dropdown ms-lg-1">
+                    <li class="nav-item dropdown ms-lg-2">
                         <a class="nav-link dropdown-toggle d-flex align-items-center gap-2" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                             <span class="avatar-circle" data-avatar-color="{{ current_user.avatar_color or '#2563EB' }}">
                                 {{ current_user.username[0] | upper }}
                             </span>
-                            <span>{{ current_user.username }}</span>
+                            <span class="fw-semibold">{{ current_user.username }}</span>
                         </a>
-                        <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0" aria-labelledby="userDropdown">
-                            <li><a class="dropdown-item py-2" href="{{ url_for('auth.dashboard') }}"><i class="fa-solid fa-gauge-high me-2 text-warning"></i> Dashboard</a></li>
-                            <li><a class="dropdown-item py-2" href="{{ url_for('auth.profile') }}"><i class="fa-solid fa-user me-2 text-purple"></i> Profile</a></li>
+                        <ul class="dropdown-menu dropdown-menu-end shadow-sm border" aria-labelledby="userDropdown">
+                            <li><a class="dropdown-item py-2" href="{{ url_for('auth.dashboard') }}"><i class="fa-solid fa-gauge-high me-2 text-primary"></i> Dashboard</a></li>
+                            <li><a class="dropdown-item py-2" href="{{ url_for('auth.profile') }}"><i class="fa-solid fa-user me-2 text-primary"></i> Profile</a></li>
                             <li><hr class="dropdown-divider my-1"></li>
                             <li><a class="dropdown-item py-2 text-danger" href="{{ url_for('auth.logout') }}"><i class="fa-solid fa-right-from-bracket me-2 text-danger"></i> Logout</a></li>
                         </ul>
                     </li>
                     {% else %}
                     <li class="nav-item ms-lg-2">
-                        <a class="btn btn-outline-secondary btn-sm px-3" href="{{ url_for('auth.login') }}">
-                            <i class="fa-solid fa-lock me-1 text-purple"></i> Login
+                        <a class="btn btn-outline-primary btn-sm px-3" href="{{ url_for('auth.login') }}">
+                            <i class="fa-solid fa-right-to-bracket me-1"></i> Log In
                         </a>
                     </li>
                     <li class="nav-item ms-lg-1">

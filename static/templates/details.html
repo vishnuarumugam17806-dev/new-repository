@@ -8,24 +8,24 @@
     <!-- Breadcrumb Navigation -->
     <div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
         <a href="/store" class="btn btn-sm btn-outline-secondary">
-            <i class="fa-solid fa-chevron-left me-1 text-icon-indigo"></i> Marketplace
+            <i class="fa-solid fa-chevron-left me-1"></i> DB Store
         </a>
         <span class="text-muted">/</span>
         <span class="fw-bold text-dark fs-6">{{ database.project_name }}</span>
-        {% if database.ai_generated %}<span class="badge-purple"><i class="fa-solid fa-robot me-1 text-icon-purple"></i> AI Generated</span>{% endif %}
-        {% if database.industry %}<span class="badge-gov"><i class="fa-solid fa-tag me-1 text-icon-cyan"></i> {{ database.industry }}</span>{% endif %}
+        {% if database.ai_generated %}<span class="badge bg-primary"><i class="fa-solid fa-robot me-1"></i> AI Generated</span>{% endif %}
+        {% if database.industry %}<span class="badge bg-secondary"><i class="fa-solid fa-tag me-1"></i> {{ database.industry }}</span>{% endif %}
     </div>
 
     <!-- Live Deployment Confirmation Alert -->
     {% if database.is_deployed %}
     <div class="alert alert-success shadow-sm mb-4">
-        <i class="fa-solid fa-circle-check fs-4 text-icon-green"></i>
+        <i class="fa-solid fa-circle-check fs-4 text-success"></i>
         <div class="flex-grow-1">
             <h6 class="fw-bold mb-0">Database Deployed Successfully</h6>
             <p class="mb-0 small text-secondary">Active database instance on SQL Server: <strong>{{ database.deployed_to }}</strong></p>
         </div>
         <a href="/crud/{{ database.id }}" class="btn btn-success btn-sm ms-auto">
-            <i class="fa-solid fa-table me-1"></i> Open Live CRUD Manager
+            <i class="fa-solid fa-table me-1"></i> View Data
         </a>
     </div>
     {% endif %}
@@ -38,7 +38,7 @@
                 <p class="text-secondary small mb-3">{{ database.requirements[:220] }}{% if database.requirements|length > 220 %}...{% endif %}</p>
                 <div class="d-flex flex-wrap gap-2">
                     {% for tag in database.tags_list[:6] %}
-                    <span class="badge-blue" style="font-size:0.75rem;"><i class="fa-solid fa-hashtag me-1 text-icon-blue"></i>{{ tag }}</span>
+                    <span class="badge bg-light text-secondary border" style="font-size:0.75rem;"><i class="fa-solid fa-hashtag me-1"></i>{{ tag }}</span>
                     {% endfor %}
                 </div>
             </div>
@@ -46,19 +46,19 @@
                 <div class="row g-2 text-center">
                     <div class="col-4">
                         <div class="p-2 bg-light border rounded">
-                            <div class="fw-bold text-icon-blue fs-5">{{ database.views_count or 0 }}</div>
+                            <div class="fw-bold text-primary fs-5">{{ database.views_count or 0 }}</div>
                             <div class="text-muted small">Views</div>
                         </div>
                     </div>
                     <div class="col-4">
                         <div class="p-2 bg-light border rounded">
-                            <div class="fw-bold text-icon-red fs-5">{{ database.likes_count or 0 }}</div>
+                            <div class="fw-bold text-danger fs-5">{{ database.likes_count or 0 }}</div>
                             <div class="text-muted small">Likes</div>
                         </div>
                     </div>
                     <div class="col-4">
                         <div class="p-2 bg-light border rounded">
-                            <div class="fw-bold text-icon-green fs-5">{{ database.downloads_count or 0 }}</div>
+                            <div class="fw-bold text-success fs-5">{{ database.downloads_count or 0 }}</div>
                             <div class="text-muted small">Downloads</div>
                         </div>
                     </div>
@@ -74,22 +74,22 @@
 
         <!-- Action Buttons Row with Icons -->
         <div class="mt-4 pt-3 border-top d-flex flex-wrap gap-2">
-            <a href="/push-to-ssms/{{ database.id }}" class="btn btn-purple">
+            <a href="/push-to-ssms/{{ database.id }}" class="btn btn-primary">
                 <i class="fa-solid fa-paper-plane me-1"></i> Push to SQL Server
             </a>
             <a href="/execute/{{ database.id }}" class="btn btn-success">
-                <i class="fa-solid fa-play me-1"></i> Deploy to RDBMS
+                <i class="fa-solid fa-play me-1"></i> Deploy Database
             </a>
             {% if database.is_deployed %}
             <a href="/crud/{{ database.id }}" class="btn btn-outline-primary">
-                <i class="fa-solid fa-table me-1 text-icon-blue"></i> Browse Tables
+                <i class="fa-solid fa-table me-1"></i> View Data
             </a>
             {% endif %}
-            <a href="/database/{{ database.id }}/er-diagram" class="btn btn-outline-purple" target="_blank">
-                <i class="fa-solid fa-diagram-project me-1 text-icon-purple"></i> Full ER Diagram
+            <a href="/database/{{ database.id }}/er-diagram" class="btn btn-outline-secondary" target="_blank">
+                <i class="fa-solid fa-diagram-project me-1"></i> ER Diagram
             </a>
-            <a href="/download-sql/{{ database.id }}" class="btn btn-outline-cyan">
-                <i class="fa-solid fa-file-arrow-down me-1 text-icon-cyan"></i> Download .SQL
+            <a href="/download-sql/{{ database.id }}" class="btn btn-outline-secondary">
+                <i class="fa-solid fa-file-arrow-down me-1"></i> Download SQL
             </a>
 
             <!-- Export Dropdown -->
